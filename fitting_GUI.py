@@ -3,6 +3,7 @@ import os.path
 import numpy as np
 import csv
 from lmfit import Parameters, Model
+from datetime import datetime
 #import matplotlib
 from matplotlib.backends.backend_qtagg import (
     FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
@@ -10,7 +11,7 @@ from matplotlib.figure import Figure
 
 from PyQt6.QtCore import QDateTime, Qt, QTimer
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDateTimeEdit,
-        QDial, QDialog, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+        QDial, QDialog, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
         QPushButton, QRadioButton, QScrollBar, QSizePolicy,
         QSlider, QSpinBox, QStyleFactory, QTableWidget, QTabWidget, QTextEdit,
         QVBoxLayout, QWidget)
@@ -32,19 +33,19 @@ class MainWindow(QDialog):
         self.PNum = len(NVFit.PGuess)
         self.isCheckEd = np.zeros(self.PNum)
         self.gmodel = Model(NV100_fitting_function)
-        self.params = self.gmodel.make_params()
+        self.params = None
         self.fitResult = None
         self.datax=[]
         self.datay=[]
-        # self.filepath = 'D:\\work\\py\\test.txt'
-        self.filepath = 'C:\\Users\\esthe\\OneDrive\\Desktop\\VSCode\\Plotting\\test.txt'
+        self.filePath = 'D:\\work\\py\\test.txt'
+        #self.filepath = 'C:\\Users\\esthe\\OneDrive\\Desktop\\VSCode\\Plotting\\test.txt'
         # initialize x range
         self.startx = 2.65e9
         self.endx = 3.2e9
         self.Nx = 501
         self.xlist = np.linspace(self.startx, self.endx, self.Nx)
         #Generate Figurecanvas class
-        self.plotInit = 1
+        self.plotInit = 0
         self.plotWidth =  5
         self.plotHeight = 5
         self.sc = FigureCanvas(Figure(figsize=(self.plotWidth, self.plotHeight), dpi=50))
@@ -76,19 +77,17 @@ class MainWindow(QDialog):
     def createTopLeftGroupBox(self):
         self.topLeftGroupBox = QGroupBox("Load file")
 
-        text1 = QLabel()
-        text1.setText("File name:")
-        # self.inputLine = QLineEdit("D:\\work\\py\\test.txt")
-        self.inputLine = QLineEdit("C:\\Users\\esthe\\OneDrive\\Desktop\\VSCode\\Plotting\\test.txt")
-        text2 = QLabel()
-        text2.setText("e.g. C:\\Users\\yourname\\Desktop\\file.csv")
+##        text1 = QLabel()
+##        text1.setText("File name:")
+##        self.inputLine = QLineEdit("D:\\work\\py\\test.txt")
+##        text2 = QLabel()
+##        text2.setText("e.g. C:\\Users\\yourname\\Desktop\\file.csv")
         loadButton = QPushButton("Load and plot!")
         loadButton.clicked.connect(self.loadFileButtonCallback)
 
         layout = QVBoxLayout()
-        layout.addWidget(text1)
-        layout.addWidget(self.inputLine)
-        layout.addWidget(text2)
+##        layout.addWidget(text1)
+##        layout.addWidget(text2)
         layout.addWidget(loadButton)
         self.topLeftGroupBox.setLayout(layout)
 
@@ -165,26 +164,40 @@ class MainWindow(QDialog):
         layout.addWidget(exportButton)
         self.bottomRightGroupBox.setLayout(layout)
 
-    def updateCanvas(self, x=np.array([0,1,2,3,4]), y=np.array([0,0,0,0, 0])):
+    def updateCanvas(self, x=np.array([0,1,2,3,4]), y=np.array([0,1,2,3,4])):
         self.axes.cla()  # Clear the canvas.
         self.axes.set_ylabel('Intensity')
         self.axes.set_xlabel('Frequency(Hz)')
-        self.axes.plot(self.datax, self.datay, 'o-b', label = 'Exp')
-        if self.plotInit:
-            self.plotInit = 0
+        if len(self.datax) != 0:
+            print(len(self.datax))
+            self.axes.plot(self.datax, self.datay, 'o-b', label = 'Exp')
+            if self.plotInit:
+                print("haha")
+                self.axes.plot(x, y, '-r', label = 'Fit')
+                # Trigger the canvas to update and redraw.
+                self.axes.set_xlim([self.startx, self.endx])
+                self.axes.legend()
+            self.sc.draw()
         else:
-            self.axes.plot(x, y, '-r', label = 'Fit')
-        # Trigger the canvas to update and redraw.
-        self.axes.set_xlim([self.startx, self.endx])
-        self.axes.legend()
-        self.sc.draw()
+            print("The data is not loaded")
+
+    def updateParameters(self):
+        if self.fitResult is None:
+            print("The fit has not been processed yet")
+        else:
+            print(self.fitResult.best_values)
+            fitValues = self.fitResult.best_values
+            for i in range(self.PNum):
+                self.lineCol[i].setText(str(round(fitValues[self.gmodel.param_names[i]],5)))
+            print("Fitted Parameters updated")
+            
 
     def esrData(self, filename):
         with open(filename) as file:
             txtFile = csv.reader(file, delimiter=" ")
-
+            self.datax = []
+            self.datay = []
             for line in txtFile:
-                # print(line)
                 if line != []:
                     if line[0]<'A' and line[0]>'*':
                         ## Turning the list of strings into an np array
@@ -193,6 +206,7 @@ class MainWindow(QDialog):
                         ## Writing the parts of the line to x and y arrays
                         self.datax.append(nline[0])
                         self.datay.append(nline[1])
+            file.close()
 
         # Normalizing the baseline of the ESR Data to 1
         datayavg=[]
@@ -201,9 +215,10 @@ class MainWindow(QDialog):
                 datayavg.append(i)
 
         self.datayBaseline = np.mean(datayavg)
-        self.datay=self.datay/np.mean(datayavg)
+        print(self.datayBaseline)
         self.datax = np.array(self.datax)
         self.datay = np.array(self.datay)
+        self.datay = self.datay/np.mean(datayavg)
 
     # def loadFile(self):
         # dataArray = np.loadtxt(self.filepath)
@@ -216,19 +231,32 @@ class MainWindow(QDialog):
         (currentPath, fileName) = os.path.split(self.filePath)
         print(currentPath)
         newPath = os.path.join(currentPath, 'fit_summary.txt')
+        newPath = newPath.replace("\\", "/")
         print(newPath)
         tmpFile = open(newPath, "a")
+        tmpFile.write(str(datetime.now()) + "\n")
+        tmpFile.write("Peaks frequencys:\n")
+        print(NVFit.MWFreq)
+        tmpFile.write(str(NVFit.MWFreq))
+        tmpFile.write("\n")
+        tmpFile.write("#########################\n")
         tmpFile.write(self.fitResult.fit_report())
         tmpFile.write("\n")
-        tmpFile.write("#########################")
+        tmpFile.write("#########################\n")
         tmpFile.close()
     
     def loadFileButtonCallback(self):
-        self.filePath = self.inputLine.text()
-        print(self.filePath)
+        dialog = QFileDialog()
+        (self.filePath, selectedFilter) = dialog.getOpenFileName(None, "Select Folder")
+        if os.path.exists(self.filePath):
+        #self.filePath = self.inputLine.text()
+        #print(self.filePath)
         # self.loadFile()
-        self.esrData(self.filePath)
-        self.updateCanvas()
+            print(self.filePath)
+            self.esrData(self.filePath)
+            self.updateCanvas()
+        else:
+            print("File does not exist")
 
     def updateButtonCallback(self):
         #print("haha")
@@ -242,20 +270,25 @@ class MainWindow(QDialog):
             #print(float(self.lineCol[i].text()))
             NVFit.PGuess[i] = float(self.lineCol[i].text())
         
-        MWFreq = NVFit.NV100_exact_Bonly()
-        ylist = NVFit.Plot_guess_fit(self.xlist, MWFreq, 'l')
+        NVFit.NV100_exact_Bonly()
+        ylist = NVFit.Plot_guess_fit(self.xlist, 'l')
+        self.plotInit = 1
         self.updateCanvas(self.xlist, ylist)
         print("Parameters updated")
 
 
     def fittingButtonCallback(self):
-        print(NVFit.PGuess)
+        self.params = self.gmodel.make_params()
+            #print(NVFit.PGuess)
         for i in range(self.PNum):
             self.isCheckEd[i] = self.checkCol[i].isChecked()
             if i == 3 or i == 4:
-                self.params.add(self.gmodel.param_names[i], value=NVFit.PGuess[i], vary=1 - self.isCheckEd[i], min=0, max=90)
+                self.params.add(self.gmodel.param_names[i], value=NVFit.PGuess[i], vary=int(1 - self.isCheckEd[i]), min=0, max=90)
+            elif i > 6:
+                self.params.add(self.gmodel.param_names[i], value=NVFit.PGuess[i], vary=int(1 - self.isCheckEd[i]), max=0)
             else:
-                self.params.add(self.gmodel.param_names[i], value=NVFit.PGuess[i], vary=1 - self.isCheckEd[i])
+                self.params.add(self.gmodel.param_names[i], value=NVFit.PGuess[i], vary=int(1 - self.isCheckEd[i]))
+                
         print(self.params)
         print("Fitting parameters are set")
         if self.datay is None:
@@ -264,6 +297,7 @@ class MainWindow(QDialog):
         else:
             self.fitResult = self.gmodel.fit(self.datay, self.params, xVals=self.datax)
             self.updateCanvas(self.datax, self.fitResult.best_fit)
+            self.updateParameters()
             print("Fitting plotted")
 
 
@@ -271,6 +305,7 @@ class MainWindow(QDialog):
         if self.fitResult is None:
             print("Data isn't fitted yet")
         else:
+            print(self.filePath)
             self.exportFile()
             print("Report saved")
         

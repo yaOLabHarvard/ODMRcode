@@ -64,11 +64,13 @@ class NVfit:
         self.PGuess[3] = 30 #in-plane angle in deg
         self.PGuess[4] = 20 # out of plane angle in deg
         self.PGuess[5] = 10e6 # Hz
-        self.PGuess[6] = 52.75
+        self.PGuess[6] = 1.0
         self.PGuess[7] = -20e6
         self.PGuess[8] = -20e6
         self.PGuess[9] = -10e6
         self.PGuess[10] = -10e6 # Intensity offset and individual intensity for four NV groups
+
+        self.MWFreq = np.zeros(8)
         
         
         print("NV initialized!")
@@ -91,29 +93,25 @@ class NVfit:
         alpha[3] = np.arccos(Bdir.dot([1,-1,-1])/np.sqrt(3))
         #print(alpha)
         ## Calculate frequency
-        MWFreq = np.zeros(8)
         for i in range(4):
             HH = self.PGuess[0]*Sz.dot(Sz)+self.gamma*self.PGuess[2]*(np.cos(alpha[i])*Sz+np.sin(alpha[i])*Sx)
             eigval = np.sort(np.real(np.linalg.eigvals(HH)))
-            MWFreq[2*i] = eigval[1] - eigval[0]
-            MWFreq[2*i + 1] = eigval[2] - eigval[0]
+            self.MWFreq[2*i] = eigval[1] - eigval[0]
+            self.MWFreq[2*i + 1] = eigval[2] - eigval[0]
 
-        return MWFreq
-
-
-    def Plot_guess_fit(self, xVals, MWFreq, style = 'l'):
+    def Plot_guess_fit(self, xVals, style = 'l'):
         eta = 0.5
         function = np.ones(len(xVals))*self.PGuess[6]
 
         for i in range(8):
             num = 7 + int(i/2)
-            function += funcMap[style](xVals, self.PGuess[num], self.PGuess[5], MWFreq[i], eta)
+            function += funcMap[style](xVals, self.PGuess[num], self.PGuess[5], self.MWFreq[i], eta)
         #print(function)
         return  function
 
+
 NVFit = NVfit()
-    
-        
+
 def NV100_fitting_function(xVals, DD, EE, BB, phi, theta, width, offset, A1, A2, A3, A4):
     
     NVFit.PGuess[0] = DD
@@ -128,9 +126,9 @@ def NV100_fitting_function(xVals, DD, EE, BB, phi, theta, width, offset, A1, A2,
     NVFit.PGuess[9] = A3
     NVFit.PGuess[10] = A4
     print(A1)
-    MWFreq = NVFit.NV100_exact_Bonly()
+    NVFit.NV100_exact_Bonly()
 
-    return NVFit.Plot_guess_fit(xVals, MWFreq, curve_style)
+    return NVFit.Plot_guess_fit(xVals, curve_style)
     
             
 

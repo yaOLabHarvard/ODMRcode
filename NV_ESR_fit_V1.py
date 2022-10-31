@@ -19,6 +19,25 @@ def RMat(Rangle, Raxis):
     r = Rot.from_rotvec(Rangle* np.array(Raxis)/np.linalg.norm(Raxis))
     return r.as_matrix()
 
+def axisTransform(x,y,z,xp,yp,zp):
+    # transformation matrix that convert xyz to x'y'z'
+    x = np.array(x)/np.linalg.norm(np.array(x))
+    y = np.array(y)/np.linalg.norm(np.array(y))
+    z = np.array(z)/np.linalg.norm(np.array(z))
+    xp = np.array(xp)/np.linalg.norm(np.array(xp))
+    yp = np.array(yp)/np.linalg.norm(np.array(yp))
+    zp = np.array(zp)/np.linalg.norm(np.array(zp))
+    old = np.array([x,y,z])
+    print(old)
+    new = np.array([xp,yp,zp])
+    print(new)
+    if np.linalg.det(old) == 0 or np.linalg.det(new) == 0:
+        print("The axis vectors are invalid!!!")
+    else:
+        RR = np.dot(new, np.linalg.inv(old))
+        print(np.dot(RR,RR.transpose()))
+        return RR
+
 ## spin 1 operators
 Sx= np.array([[0,1,0],[1,0,1],[0,1,0]])/np.sqrt(2)
 Sy= np.array([[0,1,0],[-1,0,1],[0,-1,0]])/(np.sqrt(2)*1j)

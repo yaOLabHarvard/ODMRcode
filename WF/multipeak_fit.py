@@ -815,12 +815,12 @@ def read_matfile(filename, normalize= True, avg= True, Nx= 4, Ny= 4, Nf= 4, norm
         xFrom= np.squeeze(gWide[1])
         xTo= np.squeeze(gWide[2])
         fVals= np.squeeze(gWide[4])*1e-9
-        dat= np.swapaxes(np.squeeze(gWide[11]),0,1)
+        dat= np.swapaxes(np.squeeze(gWide[-1]),0,1)
     else:
         xFrom= np.squeeze(gWide[4])
         xTo= np.squeeze(gWide[5])
         fVals= np.squeeze(gWide[7])*1e-9
-        dat= np.swapaxes(np.squeeze(gWide[11]),0,1)
+        dat= np.swapaxes(np.squeeze(gWide[-1]),0,1)
 
     if avg:
         for axis,N in zip([0,1,2],[Nx, Ny, Nf]):

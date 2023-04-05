@@ -11,10 +11,10 @@ import scipy as sp
 
 # In[2]:
 
-filename= './ESR_data/0_GPa_small field_01272023.mat'
-fVals, dat, xFrom, xTo, X, Y, npoints = read_matfile(filename, normalize= False)
-img= dat[:,:,10].copy()
-##dat= normalize_widefield(dat)
+path = "F:/NMR/NMR/py_projects/WF/ODMRcode/WF/raw_data/"
+filename= '440mW_50um_n25dbm_23K_50ms.mat'
+fVals, dat, xFrom, xTo, X, Y, npoints = read_matfile(path + filename, normalize= False)
+img1 = dat[:,:,3].copy()
 
 #### plot a specific point ESR
 ##ii = 500
@@ -24,44 +24,52 @@ img= dat[:,:,10].copy()
 ##ijplot = ax.plot(fVals, yVals)
 ##plt.show()
 
-## plot the MW effected region
-MWmap = np.zeros((X,Y), dtype = float)
-for i in range(X):
-    for j in range(Y):
-        MWmap[i, j] = 1*npoints - sum(dat[i, j, :])
-ax = plt.subplot()
-MWplot = ax.imshow(MWmap)
-divider = make_axes_locatable(ax)
+fig, ax = plt.subplots(nrows=2, ncols= 2, figsize= (10,6),gridspec_kw={'width_ratios': [1, 1], 'height_ratios': [1, 1]})
+##fig.tight_layout(h_pad = 2)
+## plot the image after the normalization
+dat= normalize_widefield(dat)
+IMGplot = ax[0,0].imshow(img1)
+divider = make_axes_locatable(ax[0,0])
 cax = divider.append_axes("right", size="5%", pad=0.05)
-plt.colorbar(MWplot, cax=cax)
-plt.show()
+plt.colorbar(IMGplot, cax=cax)
 
 
+## plot the center of the ESR
 
-## data plot with multipeak fit
+ESRcenter = np.squeeze(np.copy(dat[:,:,int(npoints/2)]))
+ESRcenterplot = ax[1,0].imshow(1 - ESRcenter)
+divider = make_axes_locatable(ax[1,0])
+cax = divider.append_axes("right", size="5%", pad=0.05)
+plt.colorbar(ESRcenterplot, cax=cax)
 
-row= 300
-col= 300
+
+## plot a single point ESR
+
+row= 250
+col= 250
 # plot results
-fig, ax= plt.subplots(nrows= 1, ncols= 2, figsize= (10,4))
 yVals= np.squeeze(dat[row, col,:])
-np.savetxt("./temp.txt",np.transpose([fVals, yVals]))
-ax[0].plot(fVals, yVals, 'o');
+np.savetxt(path + "23K.txt",np.transpose([fVals, yVals]))
+singleESRplot = ax[0, 1].plot(fVals, yVals, 'o')
 ##pOpt, pCov= fit_data(fVals, yVals, init_params= generate_pinit([2.87,2.87], [False, False]), fit_function= lor_fit)
 ##ax[0].plot(fVals, lor_fit(fVals, *pOpt), '--')
 ##for i in np.arange(2):
 ##    params= pOpt[1+3*i:4+3*i]
 ##    ax[0].plot(fVals,pOpt[0]+lorentzian(fVals,*params), '-')
 
-img= np.squeeze(np.copy(dat[:,:,10]))
-# img[row-2:row+2,col-2:col+2]= np.nan
-im = ax[1].imshow(img)
-divider = make_axes_locatable(ax[1])
-cax = divider.append_axes("right", size="5%", pad=0.05)
-plt.colorbar(im, cax=cax)
-xlow,xhigh,ylow,yhigh= (0,508,0,508)
+## plot the total MW effect region
+MWmap = np.zeros((X,Y), dtype = float)
+for i in range(X):
+    for j in range(Y):
+        MWmap[i, j] = npoints - sum(dat[i, j, :])
 
+MWmapplot = ax[1,1].imshow(MWmap)
+divider = make_axes_locatable(ax[1,1])
+cax = divider.append_axes("right", size="5%", pad=0.05)
+plt.colorbar(MWmapplot, cax=cax)
+plt.savefig(path + "pic/23K.png")
 plt.show()
+
 
 
 

@@ -1,20 +1,16 @@
 #In[1]:
-from multipeak_fit import *
+import multipeak_fit as mf
 import numpy as np
-import matplotlib as mpl
+import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.integrate import quad
 import scipy as sp
-
-
-
-# ### Pressure point 1 
+path = "F:/NMR/NMR/py_projects/WF/ODMRcode/WF/raw_data/"
+filename= '440mW_50um_n31dbm_23K_5ms.mat'
 
 # In[2]:
-
-path = "F:/NMR/NMR/py_projects/WF/ODMRcode/WF/raw_data/"
-filename= '440mW_50um_n25dbm_23K_50ms.mat'
-fVals, dat, xFrom, xTo, X, Y, npoints = read_matfile(path + filename, normalize= False)
+# ### load the .mat data
+fVals, dat, xFrom, xTo, X, Y, npoints = mf.read_matfile(path + filename, normalize= False)
 img1 = dat[:,:,3].copy()
 print("data loaded")
 
@@ -30,7 +26,7 @@ print("data loaded")
 fig, ax = plt.subplots(nrows=2, ncols= 2, figsize= (10,6),gridspec_kw={'width_ratios': [1, 1], 'height_ratios': [1, 1]})
 ##fig.tight_layout(h_pad = 2)
 ## plot the image after the normalization
-dat= normalize_widefield(dat)
+dat= mf.normalize_widefield(dat)
 IMGplot = ax[0,0].imshow(img1)
 divider = make_axes_locatable(ax[0,0])
 cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -54,11 +50,11 @@ col= 250
 yVals= np.squeeze(dat[row, col,:])
 np.savetxt(path + "23K.txt",np.transpose([fVals, yVals]))
 singleESRplot = ax[0, 1].plot(fVals, yVals, 'o')
-##pOpt, pCov= fit_data(fVals, yVals, init_params= generate_pinit([2.87,2.87], [False, False]), fit_function= lor_fit)
-##ax[0].plot(fVals, lor_fit(fVals, *pOpt), '--')
-##for i in np.arange(2):
-##    params= pOpt[1+3*i:4+3*i]
-##    ax[0].plot(fVals,pOpt[0]+lorentzian(fVals,*params), '-')
+# pOpt, pCov= mf.fit_data(fVals, yVals, init_params= mf.generate_pinit([2.87,2.87], [False, False]), fit_function= mf.lor_fit)
+# ax[0, 1].plot(fVals, mf.lor_fit(fVals, *pOpt), '--')
+# for i in np.arange(int(np.floor(len(pOpt)/3))):
+#    params= pOpt[1+3*i:4+3*i]
+#    ax[0, 1].plot(fVals,pOpt[0]+mf.lorentzian(fVals,*params), '-')
 
 ## plot the total MW effect region
 MWmap = np.zeros((X,Y), dtype = float)
@@ -70,66 +66,100 @@ MWmapplot = ax[1,1].imshow(MWmap)
 divider = make_axes_locatable(ax[1,1])
 cax = divider.append_axes("right", size="5%", pad=0.05)
 plt.colorbar(MWmapplot, cax=cax)
-plt.savefig(path + "pic/23K.png")
+plt.savefig(path + "pic/23K_n31dbm.png")
 plt.show()
 
 # In[4]:
+## Do fit to multiple pixels
+single_peakQ = True
+xlow =  150
+xhigh = 450
+ylow = 150
+yhigh = 450
+rows = np.arange(xlow, xhigh, 1)
+cols = np.arange(ylow, yhigh, 1)
+
+seed_pOpts = mf.generate_seed_parameters_auto(dat, fVals, rows, cols)
+##print(seed_pOpts)
+##print(seed_pOpts.shape)
+if single_peakQ:
+    freqfit = np.zeros((X,Y))
+    pintfit = np.zeros((X,Y))
+datfit= np.empty((X,Y),dtype= object)
+boolfit= np.full((X,Y),False, dtype= bool)
+
+r = 0
+for i in rows:
+    c = 0
+    for j in cols:
+        i = int(i)
+        j = int(j)
+        print("{},{}".format(i,j))
+        if boolfit[i,j]:
+            continue
+        yVals= np.squeeze(dat[i,j,:])
+        yVals= yVals/np.mean(yVals[-5:])
+        if np.any(np.isnan(yVals)):
+            print('Pixel:[%i,%i] is skipped'%(i,j))
+            continue
+        p_init= list(seed_pOpts[r,c])
+        try:
+            pOpt, pCov= mf.fit_data(fVals,yVals, init_params= p_init, fit_function= mf.lor_fit)
+            if single_peakQ:
+                freqfit[i,j] = pOpt[3]
+                pintfit[i,j] = pOpt[1]
+                print(freqfit[i,j])
+            datfit[i,j]= {'pOpt': pOpt, 'pCov': pCov}
+            boolfit[i,j]= True
+        except sp.optimize.OptimizeWarning:
+            print('Pixel:[%i,%i] OptimizeWarning'%(i,j))
+            continue
+        except RuntimeError:
+            print('Pixel:[%i,%i] encountered RuntimeError'%(i,j))
+            continue
+        c += 1
+    r += 1
+
+# In[5]:
+if single_peakQ:
+    fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15, 6))
+    plt.sca(ax[0])
+    plt.imshow(pintfit,vmax = -5e-4,vmin = -3.5e-3)
+    plt.colorbar()
+    plt.title('Intensity', fontsize= 20)
+
+    plt.sca(ax[1])
+    plt.imshow(freqfit, vmin = 2.875, vmax = 2.881)
+    plt.colorbar()
+
+    plt.title('freq [GHz]', fontsize= 20)
+    plt.savefig(path + "pic/23K_n25dbm_single_peak_fit.png")
+    plt.show()
+##print(datfit[250-2:250+2, 250-2:250+2])
+np.save(path + filename.replace('.mat','_datfit.npy'), datfit)
+np.save(path + filename.replace('.mat','_boolfit.npy'), boolfit)
+print("fitting info are saved!!")
 
 
+# In[5]:
+## load the fitting info from .npy file
+datfit= np.load(path + filename.replace('.mat','_datfit.npy'),allow_pickle=True)
+##print(datfit[250-2:250+2, 250-2:250+2])
+boolfit= np.load(path + filename.replace('.mat','_boolfit.npy'),allow_pickle=True)
 
+f1, f2= mf.getFitInfo(datfit, numpeaks= 2, param= 'frequency')
+fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15, 6))
+plt.sca(ax[0])
+plt.imshow(f1)
+plt.colorbar()
+plt.title('f1 [MHz]', fontsize= 20)
 
-##seed_pOpts= generate_seed_parameters(dat, rowVals= np.arange(xlow,xhigh,30), fVals= fVals, colVals= np.arange(ylow,yhigh,30))
-##
-##
-## In[3]:
-##
-##datfit= np.empty((X,Y),dtype= object)
-##boolfit= np.full((X,Y),False, dtype= bool)
-##
-##for i in range(xlow,xhigh):
-##    r= i//30
-##    for j in range(ylow,yhigh):
-##        if boolfit[i,j]:
-##            continue
-##        yVals= np.squeeze(dat[i,j,:])
-##        yVals= yVals/np.mean(yVals[-5:])
-##        if np.any(np.isnan(yVals)):
-##            print('Pixel:[%i,%i] is skipped'%(i,j))
-##            continue
-##        c= j//30
-##        p_init= list(seed_pOpts[r,c])
-##        try:
-##            pOpt, pCov= fit_data(fVals,yVals, init_params= generate_pinit([2.89, 2.91], [False, False]), fit_function= lor_fit)
-##            datfit[i,j]= {'pOpt': pOpt, 'pCov': pCov}
-##            boolfit[i,j]= True
-##        except sp.optimize.OptimizeWarning:
-##            print('Pixel:[%i,%i] OptimizeWarfning'%(i,j))
-##            continue
-##        except RuntimeError:
-##            print('Pixel:[%i,%i] encountered RuntimeError'%(i,j))
-##            continue
-##
-## np.save(filename.replace('.mat','_datfit.npy'),datfit)
-## np.save(filename.replace('.mat','_boolfit.npy'),boolfit)
-##
-##
-## In[4]:
-##
-##datfit= np.load(filename.replace('.mat','_datfit.npy'),allow_pickle=True)
-##boolfit= np.load(filename.replace('.mat','_boolfit.npy'),allow_pickle=True)
-##
-##f1, f2= getFitInfo(datfit, numpeaks= 2, param= 'frequency')
-##fig, ax= plt.subplots(nrows=1, ncols= 2, figsize= (15, 6))
-##plt.sca(ax[0])
-##plt.imshow(f1,vmax= 2.88, vmin= 2.9)
-##plt.colorbar()
-##plt.title('Shift [MHz]', fontsize= 20)
-##
-##plt.sca(ax[1])
-##
-##plt.imshow(f2,vmax= 2.88, vmin= 2.93)
-##plt.colorbar()
-##plt.title('Splitting [MHz]', fontsize= 20)
+plt.sca(ax[1])
+plt.imshow(f2)
+plt.colorbar()
+
+plt.title('f2 [MHz]', fontsize= 20)
+plt.show()
 ##
 ##
 ## ### Pressure point 2

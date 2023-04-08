@@ -201,9 +201,9 @@ def extractPLFiles(date):
     date is a string containing the corresponding to a particular date in data_path
     '''
     folderpath= join(data_path,'spectrometer')
-    if (float(date.replace('-',''))<20190725):
-    	folderpath= join(folderpath,date)
-    	filenames= [join(folderpath,f) for f in listdir(join(folderpath)) if (isfile(join(folderpath,f)) and ('.csv' in f) and not('.npz' in f))]
+    if(float(date.replace('-',''))<20190725):
+        folderpath= join(folderpath,date)
+        filenames= [join(folderpath,f) for f in listdir(join(folderpath)) if (isfile(join(folderpath,f)) and ('.csv' in f) and not('.npz' in f))]
     else:
     	filenames= [join(folderpath,f) for f in listdir(join(folderpath)) if (isfile(join(folderpath,f)) and ('.csv' in f) and (date in f) and not('.npz' in f))]
     return filenames
@@ -940,24 +940,28 @@ def fit_data(xVals,yVals,init_params= None,fit_function= gauss_fit, sort_frequen
         pOpt[3::3]= fVals[ind]
     return pOpt,pCov
 
-def generate_seed_parameters(dat, fVals, rowVals, colVals):
+def generate_seed_parameters_manually(dat, fVals, rowVals, colVals):
     X, Y, npoints= dat.shape
     seed_pOpts= np.empty((len(rowVals),len(colVals)),dtype= object)
+
     for i,r in enumerate(rowVals):
         try:
             row= int((rowVals[i+1]+r)*0.5)
         except:
             row= int((r+X)*0.5)
+        
         for j,c in enumerate(colVals):
             try:
                 col= int(0.5*(c+colVals[j+1]))
             except:
                 col= int(0.5*(c+Y))
+
             fig, ax= plt.subplots(nrows= 1, ncols= 2, figsize= (10,4))
             img= np.squeeze(np.copy(dat[:,:,10]))
             img[row-2:row+2,col-2:col+2]= np.nan
-            ax[0].imshow(img);
-            ax[1].plot(fVals, dat[row,col,:]);
+            ax[0].imshow(img)
+            ax[1].plot(fVals, dat[row,col,:])
+
             plt.show()
             plt.close('all')
             seed= np.fromstring(input('Enter frequency:'),sep=',')
@@ -967,6 +971,32 @@ def generate_seed_parameters(dat, fVals, rowVals, colVals):
                 continue
             seed_pOpts[i,j]= generate_pinit(seed[:2],seed[2:])
     return seed_pOpts
+
+def generate_seed_parameters_auto(dat, fVals, rowVals, colVals):
+    X, Y, npoints= dat.shape
+    seed_pOpts= np.empty((len(rowVals),len(colVals)),dtype= object)
+    i = int(np.mean(rowVals))
+    j = int(np.mean(colVals))
+
+
+    fig, ax= plt.subplots(nrows= 1, ncols= 2, figsize= (10,4))
+    img = np.squeeze(np.copy(dat[:,:,3]))
+    img[i-2:i+2,j-2:j+2]= np.nan
+    ax[0].imshow(img)
+    ax[1].plot(fVals, dat[i,j,:])
+
+    plt.show()
+    plt.close('all')
+    seed= np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
+
+    peak_guess = []
+    for i in range(len(seed)):
+        peak_guess.append(False)
+    for i in range(len(rowVals)):
+        for j in range(len(colVals)):
+            seed_pOpts[i,j]= generate_pinit(seed, peak_guess)
+    return seed_pOpts
+
 
 def getFitInfo(datfit, numpeaks, param):
     param= param.lower()
@@ -1007,12 +1037,13 @@ def generate_bounds(numpeaks=2):
     return lb, ub
 
 def generate_pinit(freqVals= None, positive_peaks= None):
+    ## 0 -- baesline; 1 -- intensity A; 2 -- width gamma; 3 -- offset x0
     p_init= np.zeros(3*len(freqVals)+1)
     p_init[0]= 1
     p_init[1::3]= 0.001*(2*np.array(positive_peaks,dtype= float)-1)
     p_init[2::3]= 0.01
     p_init[3::3]= freqVals
-    print(p_init)
+    ##print(p_init)
     return p_init
 
 ##################################### B field fitting functions

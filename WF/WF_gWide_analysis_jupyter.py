@@ -2,6 +2,7 @@
 import multipeak_fit as mf
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.integrate import quad
 import scipy as sp
@@ -14,20 +15,27 @@ fVals, dat, xFrom, xTo, X, Y, npoints = mf.read_matfile(path + filename, normali
 img1 = dat[:,:,3].copy()
 print("data loaded")
 
-#### plot a specific point ESR
-##ii = 500
-##jj = 500
-##yVals = np.squeeze(dat[ii, jj,:])
-##ax = plt.subplot()
-##ijplot = ax.plot(fVals, yVals)
-##plt.show()
+# # In[3]:
+# ## plot a specific point ESR
+# ii = 250
+# jj = 300
+# dat= mf.normalize_widefield(dat)
+# yVals = np.squeeze(dat[ii, jj,:])
+# ax = plt.subplot()
+# ijplot = ax.plot(fVals, yVals)
+# plt.show()
 
 # In[3]:
+xlow =  150
+xhigh = 350
+ylow = 190
+yhigh = 390
 fig, ax = plt.subplots(nrows=2, ncols= 2, figsize= (10,6),gridspec_kw={'width_ratios': [1, 1], 'height_ratios': [1, 1]})
 ##fig.tight_layout(h_pad = 2)
-## plot the image after the normalization
+## plot the image before the normalization
 dat= mf.normalize_widefield(dat)
 IMGplot = ax[0,0].imshow(img1)
+ax[0, 0].add_patch(Rectangle((xlow, ylow), xhigh - xlow + 1, yhigh - ylow + 1, fill=None, alpha = 1))
 divider = make_axes_locatable(ax[0,0])
 cax = divider.append_axes("right", size="5%", pad=0.05)
 plt.colorbar(IMGplot, cax=cax)
@@ -71,14 +79,10 @@ plt.show()
 
 # In[4]:
 ## Do fit to multiple pixels
-single_peakQ = True
-xlow =  150
-xhigh = 450
-ylow = 150
-yhigh = 450
+single_peakQ = False
 rows = np.arange(xlow, xhigh, 1)
 cols = np.arange(ylow, yhigh, 1)
-
+maxFFev = 150*(npoints + 1)
 seed_pOpts = mf.generate_seed_parameters_auto(dat, fVals, rows, cols)
 ##print(seed_pOpts)
 ##print(seed_pOpts.shape)
@@ -94,7 +98,7 @@ for i in rows:
     for j in cols:
         i = int(i)
         j = int(j)
-        print("{},{}".format(i,j))
+        ##print("{},{}".format(i,j))
         if boolfit[i,j]:
             continue
         yVals= np.squeeze(dat[i,j,:])
@@ -104,7 +108,7 @@ for i in rows:
             continue
         p_init= list(seed_pOpts[r,c])
         try:
-            pOpt, pCov= mf.fit_data(fVals,yVals, init_params= p_init, fit_function= mf.lor_fit)
+            pOpt, pCov= mf.fit_data(fVals,yVals, init_params= p_init, fit_function= mf.lor_fit, maxFev = maxFFev)
             if single_peakQ:
                 freqfit[i,j] = pOpt[3]
                 pintfit[i,j] = pOpt[1]
@@ -141,37 +145,33 @@ np.save(path + filename.replace('.mat','_boolfit.npy'), boolfit)
 print("fitting info are saved!!")
 
 
-# In[5]:
+# In[6]:
 ## load the fitting info from .npy file
 datfit= np.load(path + filename.replace('.mat','_datfit.npy'),allow_pickle=True)
-##print(datfit[250-2:250+2, 250-2:250+2])
 boolfit= np.load(path + filename.replace('.mat','_boolfit.npy'),allow_pickle=True)
 
-f1, f2= mf.getFitInfo(datfit, numpeaks= 2, param= 'frequency')
+freq= mf.getFitInfo(datfit, numpeaks= 2, param= 'frequency')
+int= mf.getFitInfo(datfit, numpeaks= 2, param= 'linewidth')
 fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15, 6))
 plt.sca(ax[0])
-plt.imshow(f1)
+plt.imshow(freq)
 plt.colorbar()
-plt.title('f1 [MHz]', fontsize= 20)
+plt.title('freq [GHz]', fontsize= 20)
 
 plt.sca(ax[1])
-plt.imshow(f2)
+plt.imshow(int, vmax = 0.05, vmin = 0)
 plt.colorbar()
-
-plt.title('f2 [MHz]', fontsize= 20)
+plt.title('linewidth', fontsize= 20)
 plt.show()
+
+# In[7]:
+haha = 0
+filename= 'loading11-pp2-gWide-zeroB-2-95-3-35-251points.mat'
+fVals, dat, xFrom, xTo, X, Y, npoints= read_matfile(filename, normalize= False)
+img= dat[:,:,10].copy()
 ##
 ##
-## ### Pressure point 2
-##
-## In[21]:
-##
-##filename= 'loading11-pp2-gWide-zeroB-2-95-3-35-251points.mat'
-##fVals, dat, xFrom, xTo, X, Y, npoints= read_matfile(filename, normalize= False)
-##img= dat[:,:,10].copy()
-##
-##
-## In[3]:
+## In[8]:
 ##
 ##row= int(X/2)
 ##col= int(Y/2)

@@ -11,6 +11,7 @@ import numpy as np
 #from colorama import Fore
 import matplotlib.ticker as ticker
 from matplotlib import gridspec
+from matplotlib.patches import Rectangle
 from scipy.io import loadmat
 # import plotly.graph_objects as go
 
@@ -913,7 +914,7 @@ def normalize_widefield(img_raw, numpoints= 10, from_back= True):
                 img_raw[i,j,:]= img_raw[i,j,:]/np.nanmean(img_raw[i,j,:numpoints])
     return img_raw
 
-def fit_data(xVals,yVals,init_params= None,fit_function= gauss_fit, sort_frequencies= False):
+def fit_data(xVals,yVals,init_params= None,fit_function= gauss_fit, sort_frequencies= False, maxFev = 0):
     '''
     pOpt,pCov,rVal= fit_data(xVals,yVals,fit_function=lor_fit/gauss_fit)
 
@@ -928,7 +929,7 @@ def fit_data(xVals,yVals,init_params= None,fit_function= gauss_fit, sort_frequen
         print('Fitting aborted')
         return
 
-    pOpt,pCov= opt.curve_fit(fit_function,xVals,yVals,p0=init_params)
+    pOpt,pCov= opt.curve_fit(fit_function,xVals,yVals,p0=init_params, maxfev = maxFev)
     if sort_frequencies:
         b= pOpt[0]
         cVals= pOpt[1::3]
@@ -975,15 +976,17 @@ def generate_seed_parameters_manually(dat, fVals, rowVals, colVals):
 def generate_seed_parameters_auto(dat, fVals, rowVals, colVals):
     X, Y, npoints= dat.shape
     seed_pOpts= np.empty((len(rowVals),len(colVals)),dtype= object)
-    i = int(np.mean(rowVals))
-    j = int(np.mean(colVals))
+    i0 = int(np.min(rowVals))
+    i1 = int(np.max(rowVals))
+    j0 = int(np.min(colVals))
+    j1 = int(np.max(colVals))
 
 
     fig, ax= plt.subplots(nrows= 1, ncols= 2, figsize= (10,4))
-    img = np.squeeze(np.copy(dat[:,:,3]))
-    img[i-2:i+2,j-2:j+2]= np.nan
+    img = np.squeeze(np.copy(dat[:,:,40]))
     ax[0].imshow(img)
-    ax[1].plot(fVals, dat[i,j,:])
+    ax[0].add_patch(Rectangle((i0, j0), i1 - i0 + 1, j1 - j0 + 1, fill=None, alpha = 1))
+    ax[1].plot(fVals, dat[(i0+i1)//2, (j0+j1)//2, :])
 
     plt.show()
     plt.close('all')
@@ -1009,6 +1012,7 @@ def getFitInfo(datfit, numpeaks, param):
                 return tuple(np.ones(numpeaks)*np.nan)
         pOpt= dat['pOpt']
         dat= pOpt[ind::3]
+        ##print(dat)
         if numpeaks==1:
             return dat[0]
         else:

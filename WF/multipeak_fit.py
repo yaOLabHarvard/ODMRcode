@@ -914,6 +914,20 @@ def normalize_widefield(img_raw, numpoints= 10, from_back= True):
                 img_raw[i,j,:]= img_raw[i,j,:]/np.nanmean(img_raw[i,j,:numpoints])
     return img_raw
 
+def widefield_apodization(img_raw, freq, center_freq = 2.870, filter_para = 200):
+    """
+    img_n= widefield_apodization(img_raw)
+
+    Returns widefield dataset with exp(-f/sigma) apodization
+    """
+    x,y,f= img_raw.shape
+    apod = np.exp(-np.abs(freq - center_freq)/filter_para)
+    for i in range(x):
+        for j in range(y):
+                for k in range(f):
+                    img_raw[i,j,k]= img_raw[i,j,k]*apod[k]
+    return img_raw
+
 def fit_data(xVals,yVals,init_params= None,fit_function= gauss_fit, sort_frequencies= False, maxFev = 0):
     '''
     pOpt,pCov,rVal= fit_data(xVals,yVals,fit_function=lor_fit/gauss_fit)
@@ -928,8 +942,13 @@ def fit_data(xVals,yVals,init_params= None,fit_function= gauss_fit, sort_frequen
     if len(init_params)==0:
         print('Fitting aborted')
         return
+    try:
+        pOpt,pCov= opt.curve_fit(fit_function,xVals,yVals,p0=init_params, maxfev = maxFev)
+    except RuntimeError:
+        print("Cannot find a good fit! Aborted")
+        pOpt = None
+        pCov = None
 
-    pOpt,pCov= opt.curve_fit(fit_function,xVals,yVals,p0=init_params, maxfev = maxFev)
     if sort_frequencies:
         b= pOpt[0]
         cVals= pOpt[1::3]
@@ -1229,7 +1248,7 @@ def nv_transformation(nv_group): # tested by function test_nv_transform
     elif nv_group==4:
         R= np.dot(rotz(np.pi),np.dot(roty(np.pi-theta0/2),rotz(np.pi/4)));
     else:
-        raise ValueError('Bad Input');
+        raise ValueError('Bad Input')
     return R
 
 def test_nv_transform():

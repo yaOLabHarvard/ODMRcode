@@ -7,13 +7,28 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.integrate import quad
 import scipy as sp
 path = "F:/NMR/NMR/py_projects/WF/ODMRcode/WF/raw_data/"
-filename= '440mW_50um_n31dbm_23K_5ms.mat'
+filename= 'test.mat'
+
+def plotForever(dat):
+    while True:
+        pos = np.fromstring(input('Enter x and y (for example: 0, 0):'),sep=',')
+        x = int(pos[0])
+        y = int(pos[1])
+        if x < 0 or y < 0:
+            print("invaild input")
+            break
+        plt.figure()
+        yVals= np.squeeze(dat[x, y,:])
+        plt.plot(yVals)
+        plt.show()
+    return
+
 
 # In[2]:
 # ### load the .mat data
 fVals, dat, xFrom, xTo, X, Y, npoints = mf.read_matfile(path + filename, normalize= False)
-img1 = dat[:,:,3].copy()
 print("data loaded")
+##plotForever(dat)
 
 # # In[3]:
 # ## plot a specific point ESR
@@ -33,8 +48,10 @@ yhigh = 390
 fig, ax = plt.subplots(nrows=2, ncols= 2, figsize= (10,6),gridspec_kw={'width_ratios': [1, 1], 'height_ratios': [1, 1]})
 ##fig.tight_layout(h_pad = 2)
 ## plot the image before the normalization
+img1 = dat[:,:,3].copy()
 dat= mf.normalize_widefield(dat)
 IMGplot = ax[0,0].imshow(img1)
+##ax[0, 0].add_patch(Rectangle((50, 100), 10, 10, fill=None, alpha = 1))
 ax[0, 0].add_patch(Rectangle((xlow, ylow), xhigh - xlow + 1, yhigh - ylow + 1, fill=None, alpha = 1))
 divider = make_axes_locatable(ax[0,0])
 cax = divider.append_axes("right", size="5%", pad=0.05)

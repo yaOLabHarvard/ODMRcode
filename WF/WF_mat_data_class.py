@@ -20,6 +20,8 @@ class WFimage:
         self.dataMask = None
         self.isNorm = False
         self.isMultfit = False
+        self.isMask = False
+        self.isNpeak = False
 
     def norm(self):
         self.dat = mf.normalize_widefield(self.dat)
@@ -34,7 +36,7 @@ class WFimage:
     def pointESR(self, x = 0, y = 0):
         return self.dat[x, y].copy()
         
-    def maskData(self, eps = 1e-3):
+    def maskData(self, eps = 1.5e-3):
         if not self.isNorm:
             self.norm()
         self.dataMask = np.zeros((self.X, self.Y), dtype=int)
@@ -42,6 +44,35 @@ class WFimage:
             for y in range(self.Y):
                 if min(self.dat[x, y]) < 1 - eps:
                     self.dataMask[x, y]  = 1
+
+        self.isMask = True
+
+    def myFavoriatePlot(self, x = 0, y = 0):
+        fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (10,6))
+        ## plot the image
+        IMGplot = ax[0].imshow(self.originalDat[:,:,3].copy())
+        ax[0].add_patch(Rectangle((x - 1, y -1), 2, 2, fill=None, alpha = 1))
+        divider = make_axes_locatable(ax[0])
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        plt.colorbar(IMGplot, cax=cax)
+
+
+        ## plot single ESR
+        spESR = self.pointESR(x, y)
+        ax[1].plot(self.fVals, spESR, '-')
+        peaks = self.singleESRpeakfind(x, y, method = 'user')
+        popt, pcov, chisq = self.singleESRfit(x, y)
+        print("the Chi square is {}".format(chisq))
+        ax[1].plot(self.fVals[peaks], spESR[peaks], 'x')
+        try:
+            for i in np.arange(int(np.floor(len(popt)/3))):
+                params= popt[1+3*i:4+3*i]
+                ax[1].plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params), '-')
+        except TypeError:
+            print("No good fit was found! Try increase Maxfev or try a better initial guess")
+
+        plt.show()
+        plt.close()
 
     def maskContourgen(self):
         if self.dataMask is not None:
@@ -57,14 +88,16 @@ class WFimage:
         else:
             print("Mask hasn't been created! Make the mask by maskData")
 
-    def singleESRpeakfind(self, x = 0, y = 0, max_peak = 2):
+    def singleESRpeakfind(self, x = 0, y = 0, max_peak = 6, method = 'user'):
         if not self.isNorm:
             self.norm()
         yVals = self.pointESR(x, y)
         ymax = max(1 - yVals)
         # ymin = min(1 - yVals)
-        peakPos, _ = find_peaks(1 - yVals, distance = 30,  height=(ymax/3, ymax), width = 10)
-        #peakPos, _ = find_peaks(1 - yVals, prominence=0.8)
+        if method == 'user':
+            peakPos, _ = find_peaks(1 - yVals, distance = 20,  height=(ymax/5, ymax), width = 10)
+        elif method == 'pro':
+            peakPos, _ = find_peaks(1 - yVals, prominence=0.1)
         peak_values = yVals[peakPos]
 
         #   Sort the peaks by amplitude (highest to lowest)
@@ -76,6 +109,7 @@ class WFimage:
             top_peak = peak_indices_sorted[:max_peak]
             return top_peak
 
+
     def singleESRfit(self, x = 0, y = 0, autofind = True):
         yVals = self.pointESR(x, y)
         if autofind:
@@ -83,7 +117,7 @@ class WFimage:
         else:
             peakPos = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
         initParas = mf.generate_pinit(self.fVals[peakPos], np.zeros(len(peakPos)))
-        pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=100)
+        pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=200)
         if pOpt is not None:
             residuals = yVals - mf.lor_fit(self.fVals, *pOpt)
             chiSq = np.sum((residuals / mf.lor_fit(self.fVals, *pOpt)) ** 2)
@@ -118,10 +152,26 @@ class WFimage:
                     popt = self.optList[(x, y)]
                     if popt is not None:
                         self.Npeak[x,y] = int(np.floor(len(popt)/3))
-
+            self.isNpeak = True
             return self.Npeak
         else:
             print("Run multiESRfit first to unlock this")
+
+    def npeakManualCorrection(self, eps = 5e-5):
+        if self.isNpeak and self.isMask:
+            for x in self.multix:
+                for y in self.multiy:
+                    if self.sqList[(x, y)] > eps and self.dataMask[x, y]:
+                        try:
+                            self.myFavoriatePlot(x, y)
+                            newN = int(input('Enter number of peaks you think is real:'))
+                            self.Npeak[x, y] = newN
+                        except KeyboardInterrupt:
+                            print("Force to stop!")
+                            return 0
+        
+        return 1
+    
 
     def multiChisqplot(self):
         if self.isMultfit:

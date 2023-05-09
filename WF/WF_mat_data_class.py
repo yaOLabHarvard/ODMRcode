@@ -12,6 +12,8 @@ import random as rd
 path = "F:/NMR/NMR/py_projects/WF/ODMRcode/WF/raw_data/"
 filename= '100xobj_Bz0p3A.mat'
 
+##My comment
+
 class WFimage:
     def __init__(self, filename):
         self.fVals, self.dat, self.xFrom, self.xTo, self.X, self.Y, self.npoints = mf.read_matfile(filename, normalize= False)

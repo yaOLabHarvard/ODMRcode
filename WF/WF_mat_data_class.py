@@ -16,7 +16,7 @@ class WFimage:
     def __init__(self, filename):
         self.fVals, self.dat, self.xFrom, self.xTo, self.X, self.Y, self.npoints = mf.read_matfile(filename, normalize= False)
         print("mat file is loaded successfully!")
-        self.originalDat = self.dat
+        self.originalDat = self.dat.copy()
         self.dataMask = None
         self.isNorm = False
         self.isMultfit = False
@@ -28,15 +28,15 @@ class WFimage:
         self.isNorm = True
 
     def sliceImage(self, Nslice = 3):
-        return self.dat[:,:,Nslice].copy()
+        return self.originalDat[:,:,Nslice].copy()
     
     def generateTmp(self, ROI = [[0, 1], [0, 1]], Nslice = 3):
-        return self.dat[ROI[0,0]:ROI[0,1],ROI[1,0]:ROI[1,1],Nslice].copy()
+        return self.originalDat[ROI[0][0]:ROI[0][1],ROI[1][0]:ROI[1][1],Nslice].copy()
     
     def pointESR(self, x = 0, y = 0):
         return self.dat[x, y].copy()
         
-    def maskData(self, eps = 1.5e-3):
+    def maskData(self, eps = .5e-3):
         if not self.isNorm:
             self.norm()
         self.dataMask = np.zeros((self.X, self.Y), dtype=int)
@@ -48,7 +48,7 @@ class WFimage:
         self.isMask = True
 
     def myFavoriatePlot(self, x = 0, y = 0):
-        fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (10,6))
+        fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,6))
         ## plot the image
         IMGplot = ax[0].imshow(self.originalDat[:,:,3].copy())
         ax[0].add_patch(Rectangle((x - 1, y -1), 2, 2, fill=None, alpha = 1))
@@ -75,27 +75,27 @@ class WFimage:
         plt.close()
 
     def maskContourgen(self):
-        if self.dataMask is not None:
+        if self.isMask:
             xlist = np.arange(0, self.X, 1)
             ylist = np.arange(0, self.Y, 1)
             CX, CY = np.meshgrid(xlist, ylist)
             CZ = np.zeros((self.X, self.Y), dtype=float)
-            for x in range(self.X):
-                for y in range(self.Y):
-                    CZ[x, y] = min(self.dataMask[x, y])
+            for x in xlist:
+                for y in ylist:
+                    CZ[x, y] = min(self.dat[x, y])
 
             return CX, CY, CZ
         else:
             print("Mask hasn't been created! Make the mask by maskData")
 
-    def singleESRpeakfind(self, x = 0, y = 0, max_peak = 6, method = 'user'):
+    def singleESRpeakfind(self, x = 0, y = 0, max_peak = 2, method = 'user'):
         if not self.isNorm:
             self.norm()
         yVals = self.pointESR(x, y)
         ymax = max(1 - yVals)
         # ymin = min(1 - yVals)
         if method == 'user':
-            peakPos, _ = find_peaks(1 - yVals, distance = 20,  height=(ymax/5, ymax), width = 10)
+            peakPos, _ = find_peaks(1 - yVals, distance = 20,  height=(ymax/5, ymax), width = 5)
         elif method == 'pro':
             peakPos, _ = find_peaks(1 - yVals, prominence=0.1)
         peak_values = yVals[peakPos]
@@ -110,22 +110,26 @@ class WFimage:
             return top_peak
 
 
-    def singleESRfit(self, x = 0, y = 0, autofind = True):
+    def singleESRfit(self, x = 0, y = 0, autofind = True, backupOption = None):
         yVals = self.pointESR(x, y)
         if autofind:
             peakPos = self.singleESRpeakfind(x, y)
         else:
             peakPos = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
         initParas = mf.generate_pinit(self.fVals[peakPos], np.zeros(len(peakPos)))
-        pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=200)
+
+        pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=500)
         if pOpt is not None:
             residuals = yVals - mf.lor_fit(self.fVals, *pOpt)
             chiSq = np.sum((residuals / mf.lor_fit(self.fVals, *pOpt)) ** 2)
         else:
+            if backupOption is not None:
+                initParas = mf.generate_pinit(backupOption, np.zeros(len(backupOption)))
+                pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=500)
             chiSq = 1
         return pOpt, pCov, chiSq
 
-    def multiESRfit(self, xlist, ylist):
+    def multiESRfit(self, xlist, ylist, backupOption = None):
         self.optList = {}
         self.covList = {}
         self.sqList = {}
@@ -133,7 +137,7 @@ class WFimage:
         self.multiy = ylist
         for x in self.multix:
             for y in self.multiy:
-                pOpt, pCov, chiSq = self.singleESRfit(x, y)
+                pOpt, pCov, chiSq = self.singleESRfit(x, y, backupOption=backupOption)
                 self.optList[(x, y)] = pOpt
                 self.covList[(x, y)] = pCov
                 self.sqList[(x, y)] = chiSq
@@ -196,7 +200,7 @@ class WFimage:
             corr=correlate2d(targetImg, tmpImg, mode='same')
 
             ypos, xpos = np.unravel_index(np.argmax(corr), corr.shape)
-            return ypos, xpos
+            return [ypos, xpos]
         
     def shiftDat(self, dx = 0, dy = 0):
         (xx, yy, _) = np.shape(self.dat)
@@ -205,7 +209,23 @@ class WFimage:
         for j in np.arange(xx):
             for k in np.arange(yy):
                 if j+dy < xx and k+dx < yy:
-                    newdat[j+dy,k+dx,:]=self.dat[j,k,:]
+                    newdat[int(j+dy),int(k+dx),:]=self.dat[j,k,:]
         self.dat=newdat
 
+    def DEmap(self):
+        if self.isMultfit and self.isNpeak:
+            self.Dmap = np.zeros((self.X, self.Y))
+            self.Emap = np.zeros((self.X, self.Y))
+            for x in self.multix:
+                for y in self.multiy:
+                    theopt = self.optList[(x, y)]
+                    if self.Npeak[x, y] == 2 and theopt is not None:
+                        f1 = self.optList[(x, y)][3]
+                        f2 = self.optList[(x, y)][6]
+                        self.Dmap[x, y] = (f1 + f2)/2
+                        self.Emap[x, y] = np.abs((f1 - f2)/2)
+        return self.Dmap, self.Emap
+
     
+
+# %%

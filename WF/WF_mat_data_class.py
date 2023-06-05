@@ -9,11 +9,12 @@ from scipy.integrate import quad
 from scipy.signal import find_peaks
 from scipy.signal import correlate2d
 import scipy.optimize as opt
+from scipy.optimize import fsolve, root
 # import scipy as sp
 import random as rd
 import os
-# path = "F:/NMR/NMR/py_projects/WF/ODMRcode/WF/raw_data/"
-# filename= '100xobj_Bz0p3A.mat'
+path = "F:/NMR/NMR/py_projects/WF/ODMRcode/WF/raw_data/"
+filename= '100xobj_Bz0p3A.mat'
 # path = "C:/Users/esthe/OneDrive/Desktop/VSCode/Plotting/"
 # filename = '100xobj_Bz3A.mat'
 gamma=2.8025e-3 #GHz/G
@@ -166,7 +167,7 @@ class WFimage:
             return top_peak
 
 
-    def singleESRfit(self, x = 0, y = 0, autofind = True, backupOption = None):
+    def singleESRfit(self, x = 0, y = 0, autofind = True, backupOption = None, method = 'auto'):
         if not self.isNorm:
             print("normalize first to enable the fit")
             exit(0)
@@ -182,20 +183,25 @@ class WFimage:
                     # print(self.peakPos)
                 else:
                     self.peakPos = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
-                initParas = mf.generate_pinit(self.fVals[self.peakPos], yVals[self.peakPos])
+                if method == 'auto':
+                    initParas = mf.generate_pinit(self.fVals[self.peakPos], yVals[self.peakPos])
 
-                pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=900)
-                # print(pOpt)
-                self.pOptPrint=pOpt
-                if pOpt is not None:
-                    residuals = yVals - mf.lor_fit(self.fVals, *pOpt)
-                    chiSq = np.sum((residuals / mf.lor_fit(self.fVals, *pOpt)) ** 2)
-                else:
-                    if backupOption is not None:
-                        initParas = mf.generate_pinit(backupOption, np.zeros(len(backupOption)))
-                        pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=500)
-                    chiSq = 1
-                return pOpt, pCov, chiSq
+                    pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=900)
+
+                    self.pOptPrint=pOpt
+                    if pOpt is not None:
+                        residuals = yVals - mf.lor_fit(self.fVals, *pOpt)
+                        chiSq = np.sum((residuals / mf.lor_fit(self.fVals, *pOpt)) ** 2)
+                    else:
+                        if backupOption is not None:
+                            initParas = mf.generate_pinit(backupOption, np.zeros(len(backupOption)))
+                            pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=500)
+                        chiSq = 1
+                # elif method == 'Bsolve':
+                #     initParas = mf.generate_B111init(self.fVals[self.peakPos], yVals[self.peakPos])
+                #     pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.B111fit, maxFev=900)
+            
+        return pOpt, pCov, chiSq
 
     def multiESRfit(self, xlist, ylist, backupOption = None):
         if not self.isNorm: #Added by Esther 20230524
@@ -300,6 +306,30 @@ class WFimage:
                         self.Dmap[x, y] = (f1 + f2)/2
                         self.Emap[x, y] = np.abs((f1 - f2)/2)
         return self.Dmap, self.Emap
+
+
+    def NVESRexactfit(self, Fitfreqs, isFourpeaks = True):
+        ## freq unit in GHz; field unit in G
+        Fitfreqs = np.sort(Fitfreqs)
+        if isFourpeaks:
+            newFitfreqs = np.zeros(8)
+            newFitfreqs[0] = Fitfreqs[0]
+            newFitfreqs[-1] = Fitfreqs[-1]
+            newFitfreqs[1:4] = [Fitfreqs[1], Fitfreqs[1], Fitfreqs[1]]
+            newFitfreqs[4:7] = [Fitfreqs[2], Fitfreqs[2], Fitfreqs[2]]
+
+            func = mf.lsolver(newFitfreqs)
+            print(func([0,0,50,2.87]))
+            result = root(func, x0 = [0, 0, 50, 2.87], method='lm')
+            return result.x
+        else:
+            print("not applicable right now")
+            exit(0)
+    
+    def zfsTP(self, T, P):
+        zfsT = 2.8771+ -4.625e-6*T+ 1.067e-7*T*T+ -9.325e-10*T*T*T+ 1.739e-12*T*T*T*T+ -1.838e-15*T*T*T*T*T
+        zfsP = 1e-2*P
+        return zfsT+zfsP
 
 # %% EvsI and makeContourPlot
 def EvsI(x, Delta, alpha):

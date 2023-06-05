@@ -1080,7 +1080,7 @@ def fit_function_BT(xVals,Bx,By,Bz, T= 300):
     '''
     yVals= fit_function_BT(xVals,Bx,By,Bz,T)
     '''
-    bacground= 1
+    background= 1
     ampVals= np.ones(7)*-0.001
     linewidthVals= np.ones(7)*0.01
     freqVals= computeFreqVals(Bx,By,Bz,T)
@@ -1088,6 +1088,34 @@ def fit_function_BT(xVals,Bx,By,Bz, T= 300):
     for a,x0,l in zip(ampVals,freqVals,linewidthVals):
         yFit+= gaussian(xVals,a,l,x0)
     return yFit
+
+def lsolver(freqs):
+    return lambda x: NLfieldsolver(x,freqs)
+
+
+def NLfieldsolver(x,freqs):
+    ## x0 -- bx; x1 -- by; x2 -- bz; x3 -- D
+    freqVals= DFreqVals(x[0], x[1], x[2], x[3])
+    freqVals = np.sort(freqVals)
+    return freqVals - freqs
+
+def DFreqVals(Bx,By,Bz, D):
+    B0= [[Bx],[By],[Bz]]
+    freqVals= []
+    for i in range(1,5):
+        R= nv_transformation(i).dot(nv_transformation(1).transpose())
+        B = R.dot(B0)
+        H= D*Sz**2 + 2.8025e-3*(Sx*B[0]+Sy*B[1]+Sz*B[2])
+
+        w,v= np.linalg.eig(H)
+        w= np.real(w)
+        w.sort()
+
+        r1= w[-1]-w[0]
+        r2= w[-2]-w[0]
+
+        freqVals= freqVals+[r1, r2]
+    return freqVals
 
 def computeFreqVals(Bx,By,Bz,T= 300):
     '''
@@ -1127,7 +1155,7 @@ def NV_H(T,Bx,By,Bz):
     H_zf= (2.8771+ -4.625e-6*T+ 1.067e-7*T*T+ -9.325e-10*T*T*T+ 1.739e-12*T*T*T*T+ -1.838e-15*T*T*T*T*T)*Sz**2
 
     # magnetic field terms
-    H_b= 2.8e-3*(Sx*Bx+Sy*By+Sz*Bz)
+    H_b= 2.8025e-3*(Sx*Bx+Sy*By+Sz*Bz)
 
     H= H_zf+H_b
     return H
@@ -1240,13 +1268,13 @@ def nv_transformation(nv_group): # tested by function test_nv_transform
     '''
     theta0= np.arccos(-1/3.)
     if nv_group==1:
-        R= np.dot(rotz(np.pi),np.dot(roty(-theta0/2),rotz(-np.pi/4)));
+        R= np.dot(rotz(np.pi),np.dot(roty(-theta0/2),rotz(-np.pi/4)))
     elif nv_group==2:
-        R= np.dot(roty(theta0/2),rotz(-np.pi/4));
+        R= np.dot(roty(theta0/2),rotz(-np.pi/4))
     elif nv_group==3:
-        R= np.dot(roty(theta0/2-np.pi),rotz(np.pi/4));
+        R= np.dot(roty(theta0/2-np.pi),rotz(np.pi/4))
     elif nv_group==4:
-        R= np.dot(rotz(np.pi),np.dot(roty(np.pi-theta0/2),rotz(np.pi/4)));
+        R= np.dot(rotz(np.pi),np.dot(roty(np.pi-theta0/2),rotz(np.pi/4)))
     else:
         raise ValueError('Bad Input')
     return R

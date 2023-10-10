@@ -7,7 +7,7 @@ import os
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
 import numpy as np
-#import pandas as pd
+import pandas as pd
 #from colorama import Fore
 import matplotlib.ticker as ticker
 from matplotlib import gridspec
@@ -206,7 +206,8 @@ def extractPLFiles(date):
         folderpath= join(folderpath,date)
         filenames= [join(folderpath,f) for f in listdir(join(folderpath)) if (isfile(join(folderpath,f)) and ('.csv' in f) and not('.npz' in f))]
     else:
-    	filenames= [join(folderpath,f) for f in listdir(join(folderpath)) if (isfile(join(folderpath,f)) and ('.csv' in f) and (date in f) and not('.npz' in f))]
+        filenames= [join(folderpath,f) for f in listdir(join(folderpath)) if (isfile(join(folderpath,f)) and ('.csv' in f) and (date in f) and not('.npz' in f))]
+    
     return filenames
 
 def extractRabiFiles(date,makePlots=False):
@@ -246,21 +247,29 @@ def readScanFile(filename):
     '''
     datFile= open(filename,'r')
     datFileIterator= iter(datFile)
+    scan = []
     for line in datFileIterator:
         line= line.replace('\n','').strip()
         if 'VxRange' in line:
             arr= line.split('[um]: ')[-1].split(' NVx')[0]
             xLims= [float(x) for x in arr[1:-1].split(' ')]
-        if 'VyRange' in line:
+        elif 'VyRange' in line:
             arr= line.split('[um]: ')[-1].split(' NVy')[0]
             yLims= [float(y) for y in arr[1:-1].split(' ')]
-        if 'Size' in line:
-            scan= np.fromstring(next(datFileIterator),sep='\t')
+        elif 'VzRange' in line:
+            continue
+        elif 'DTRange' in line:
+            continue
+        elif 'Size' in line:
             size= line.split(':')[-1].strip()[1:-1].split(' ')
             x= int(size[0])
             y= int(size[1])
-            scan= scan.reshape((x,y))
-            break
+        else:
+            try:
+                scan.append(float(line))
+            except ValueError:
+                break
+    scan = np.reshape(scan, (x,y))
     return scan,xLims,yLims
 
 def readESRFile(filename):
@@ -347,7 +356,7 @@ def readFile(filename):
     elif 'ODMR' in filename:
         xVals,yVals,errVals= readODMRFile(filename)
     elif 'Rabi' in filename:
-    	xVals,yVals,errVals= readRabiFile(filename)
+        xVals,yVals,errVals= readRabiFile(filename)
     else:
         print('Not a valid filename passed')
         return None
@@ -372,10 +381,10 @@ def plotFile(filename,plotErrors= True):
         plt.xlabel('Frequency (GHz)',fontsize=15)
         plt.ylabel('Contrast',fontsize=15)
     elif 'Rabi' in filename:
-    	xVals,yVals,errVals= readRabiFile(filename)
-    	xVals= xVals*1e9 # to convert the number into nanoseconds
-    	plt.xlabel('Time (ns)',fontsize=15)
-    	plt.ylabel('Contrast',fontsize=15)
+        xVals,yVals,errVals= readRabiFile(filename)
+        xVals= xVals*1e9 # to convert the number into nanoseconds
+        plt.xlabel('Time (ns)',fontsize=15)
+        plt.ylabel('Contrast',fontsize=15)
     else:
         print('Not a valid filename passed')
         return
@@ -548,7 +557,7 @@ def fit_file(filename,fit_function=lor_fit, saveData= True, spectrometer_file= F
         plt.title(filename)
         plt.show()
     else:
-    	xVals, yVals, errVals= make_plotly(filename)
+        xVals, yVals, errVals= make_plotly(filename)
     init_params= np.fromstring(input(input_messege),sep=',')
     print(init_params)
     if len(init_params)==0:
@@ -561,11 +570,11 @@ def fit_file(filename,fit_function=lor_fit, saveData= True, spectrometer_file= F
         print('Fitting to Gaussian')
         lin_bkg= False
     elif fit_function is gauss_fit_bkg:
-    	print('Fitting to Gaussian with linear background')
-    	lin_bkg= True
+        print('Fitting to Gaussian with linear background')
+        lin_bkg= True
     elif fit_function is lor_fit_bkg:
-    	print('Fitting to Lorentzian with linear background')
-    	lin_bkg= True
+        print('Fitting to Lorentzian with linear background')
+        lin_bkg= True
 
     #init_params= compute_init_params(init_params, fit_function)
 
@@ -1059,12 +1068,13 @@ def generate_bounds(numpeaks=2):
     lb[3::3]= 0; ub[3::3]= np.inf  # frequency
     return lb, ub
 
-def generate_pinit(freqVals= None, positive_peaks= None):
+def generate_pinit(freqVals= None, peakHeights= None):
     ## 0 -- baesline; 1 -- intensity A; 2 -- width gamma; 3 -- offset x0
     p_init= np.zeros(3*len(freqVals)+1)
+    gamma = 0.01
     p_init[0]= 1
-    p_init[1::3]= 0.001*(2*np.array(positive_peaks,dtype= float)-1)
-    p_init[2::3]= 0.01
+    p_init[1::3]= np.pi*gamma/2*(np.array(peakHeights, dtype= float)-1)
+    p_init[2::3]= gamma
     p_init[3::3]= freqVals
     ##print(p_init)
     return p_init

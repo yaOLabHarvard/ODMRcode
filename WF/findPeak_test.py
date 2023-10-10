@@ -13,7 +13,7 @@ import pickle
 from WF_mat_data_class import WFimage
 path = "F:/NMR/NMR/py_projects/WF/ODMRcode/WF/raw_data/"
 # filename= '20K_n36dbm_N3569_3A.mat'
-filename= '20K_n36dbm_N3287_2p5A.mat'
+filename= '250K_n40dbm_4Abottom.mat'
 # filename= '20K_n36dbm_N2108_2A.mat'
 
 # In[1]:
@@ -25,9 +25,11 @@ ax.imshow(testimg)
 plt.show()
 WF.norm()
 #In[2]:
-xpos = 5
-ypos = 54
-WF.myFavoriatePlot(xpos, ypos)
+xlist = np.linspace(50, 100, 10)
+for xpos in xlist:
+    xpos = int(xpos)
+    ypos = 70
+    WF.myFavoriatePlot(xpos, ypos, peakSubstract=True, saveOpt=True)
 
 #In[3]:
 yr = np.arange(0, 96, 1)

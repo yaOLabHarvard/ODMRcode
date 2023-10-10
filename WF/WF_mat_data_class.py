@@ -14,7 +14,7 @@ from scipy.optimize import fsolve, root
 import random as rd
 import os
 path = "F:/NMR/NMR/py_projects/WF/ODMRcode/WF/raw_data/"
-filename= '100xobj_Bz0p3A.mat'
+# filename= '100K_n40dbm_4Abottom.mat'
 # path = "C:/Users/esthe/OneDrive/Desktop/VSCode/Plotting/"
 # filename = '100xobj_Bz3A.mat'
 gamma=2.8025e-3 #GHz/G
@@ -91,12 +91,15 @@ class WFimage:
 
         self.isMask = True
 
-    def myFavoriatePlot(self, x = 0, y = 0):
+    def myFavoriatePlot(self, x = 0, y = 0, peakSubstract = False, saveOpt = False):
         if not self.isNorm:
             self.norm()
         if not self.binned:
             self.binning()
-        fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,6))
+        if peakSubstract:
+            fig, ax = plt.subplots(nrows=1, ncols= 3, figsize= (18,6))
+        else:
+            fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,6))
         ## plot the image
         # IMGplot = ax[0].imshow(self.originalDat[:,:,3].copy())
         IMGplot = ax[0].imshow(self.binOrigDat[:,:,3].copy())
@@ -119,9 +122,20 @@ class WFimage:
                 ax[1].plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params), '-')
         except TypeError:
             print("No good fit was found! Try increase Maxfev or try a better initial guess")
-
+        if peakSubstract:
+            residue = spESR - popt[0]
+            for i in np.arange(int(np.floor(len(popt)/3))):
+                params= popt[1+3*i:4+3*i]
+                fitPeak = mf.lorentzian(self.fVals,*params)
+                print("original wave length {}; fit peak length {}".format(len(residue), len(fitPeak)))
+                for j in range(len(residue)):
+                    residue[j] = residue[j] - fitPeak[j]
+            ax[2].plot(self.fVals, residue, '-')
+            
         plt.show()
         plt.close()
+        if saveOpt and peakSubstract:
+            np.savetxt(path + "x{}y{}data_250K.txt".format(x, y), np.transpose(np.array([self.fVals, spESR, residue])))
 
     def maskContourgen(self):
         if self.isMask:
@@ -319,7 +333,7 @@ class WFimage:
             newFitfreqs[4:7] = [Fitfreqs[2], Fitfreqs[2], Fitfreqs[2]]
 
             func = mf.lsolver(newFitfreqs)
-            print(func([0,0,50,2.87]))
+            ##print(func([0,0,50,2.87]))
             result = root(func, x0 = [0, 0, 50, 2.87], method='lm')
             return result.x
         else:
@@ -1170,14 +1184,14 @@ def plotthree(MFWF, alphalow, alphahigh):
 # # val = input("Enter your value: ")
 # # print(val)
 # # %%
-folderpath='C:/Users/esthe/OneDrive/Desktop/VSCode/Plotting/Data/WF/RT NLuH Data/'
-filename='wf_1p4W_n30dbm_2A'
-# Ilist=[3.0, 2.7, 2.4, 2.1, 1.8, 1.5, 1.2, 0.9, 0.6, 0.3, 0]
+# folderpath='C:/Users/esthe/OneDrive/Desktop/VSCode/Plotting/Data/WF/RT NLuH Data/'
+# filename='wf_1p4W_n30dbm_2A'
+# # Ilist=[3.0, 2.7, 2.4, 2.1, 1.8, 1.5, 1.2, 0.9, 0.6, 0.3, 0]
 
-WF1=WFimage(folderpath + filename)
+# WF1=WFimage(folderpath + filename)
 
-img1= WF1.sliceImage()
-plt.imshow(img1)
+# img1= WF1.sliceImage()
+# plt.imshow(img1)
 # %% 
-WF1.myFavoriatePlot(20, 11)
+# WF1.myFavoriatePlot(20, 11)
 # %%

@@ -252,19 +252,19 @@ class WFimage:
             if min(yVals)>0.996:
                 # print('super low prom')
                 # print('0.0008')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0012,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.3))
             # elif min(yVals)<0.997 and min(yVals)>0.996:
             #     print('med-low prom')
             #     peakPos, _ = find_peaks(1 - yVals, prominence=(0.0014,0.3))
             elif min(yVals)<0.996 and min(yVals)>0.994:
                 # print('low prom')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0015,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.3))
             elif min(yVals)<0.994 and min(yVals)>0.990:
                 # print('med prom')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0018,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.3))
             elif min(yVals)<0.990 and min(yVals)>0.975:
                 # print('high prom')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0026,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.3))
             # # elif min(yVals)<0.992 and min(yVals)>0.985:
             else:
                 # print('ultra high prom')
@@ -280,7 +280,7 @@ class WFimage:
             top_peak = peak_indices_sorted[:max_peak]
             return top_peak
 
-    def singleESRfit(self, x = 0, y = 0,max_peak = 4, autofind = True, initGuess = None):
+    def singleESRfit(self, x = 0, y = 0,max_peak = 4, eps = .5e-3, autofind = True, initGuess = None):
         if not self.isNorm:
             print("normalize first to enable the fit")
             exit(0)
@@ -290,6 +290,9 @@ class WFimage:
                 exit(0)
             else:
                 yVals = self.pointESR(x, y)
+                if 1 - yVals.min() < eps:
+                    print("data is too flat! skipping..")
+                    return None, None, None
                 # print(yVals)
                 if initGuess is not None:
                     self.guessFreq = initGuess              
@@ -304,8 +307,10 @@ class WFimage:
                     ##print(self.peakPos)
                 ## generate real peaks based on the center freqs
                 initParas = mf.generate_pinit(self.fVals[self.peakPos], yVals[self.peakPos])
-
-                pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=1000)
+                try:
+                    pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=1000)
+                except ValueError:
+                    raise ValueError("The singleESRfit fails.. pOpt set to be none")
                 # print(pOpt)
                 self.pOptPrint=pOpt
                 if pOpt is not None:
@@ -329,17 +334,30 @@ class WFimage:
         for x in self.multix:
             for y in self.multiy:
                 if initGuess is not None:
-                    ##print('mutliesrfit')
-                    pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, initGuess=guessFreqs)
-                    if pOpt is None:
-                        pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, initGuess=initGuess)
-                    if pOpt is not None:
-                       guessFreqs = pOpt[0::3][1:]
-                    else:
-                        guessFreqs = initGuess
+                    try:
+                        pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, initGuess=guessFreqs)
+                        if pOpt is not None:
+                            guessFreqs = pOpt[0::3][1:]
+                        else:
+                            guessFreqs = initGuess
+                    except ValueError:
+                        print("manual guess fails.. trying init guess")
+                        try:
+                            pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, initGuess=initGuess)
+                        except ValueError:
+                            print("init guess fails.. trying auto guess")
+                            try:
+                                pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak)
+                            except ValueError:
+                                print("auto guess fails.. Popt set to be none")
+
+                    
                         
                 else:
-                    pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak)
+                    try:
+                        pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak)
+                    except ValueError:
+                        print("auto guess fails.. Popt set to be none")
                 self.optList[(x, y)] = pOpt
                 self.covList[(x, y)] = pCov
                 self.sqList[(x, y)] = chiSq
@@ -501,20 +519,50 @@ class WFimage:
                 EE = np.abs((Fmax - Fmin)/2)
                 return DD,EE
             else:
-                return math.nan, math.nan
+                return 0, 0
         else:
             print("Need to operate multiesrfit first!!")
 
 
-    def DEmap(self):
+    def DEmap(self, plot = False):
         if self.isMultfit:
             self.Dmap = np.zeros((self.X, self.Y))
             self.Emap = np.zeros((self.X, self.Y))
+            self.Dmax = 0
+            self.Dmin = 1e6
+            self.Emax = 0
+            self.Emin = 1e6
             for x in self.multix:
                 for y in self.multiy:
                     D, E =  self.DandE(x, y)
+                    if D:
+                        if D > self.Dmax:
+                            self.Dmax = D
+                        elif D < self.Dmin:
+                            self.Dmin = D
+                    if E:
+                        if E > self.Emax:
+                            self.Emax = E
+                        elif E < self.Emin:
+                            self.Emin = E
                     self.Dmap[x, y] = D
                     self.Emap[x, y] = E
+
+            if plot:
+                fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (6*2,6))
+                img1 = ax[0].imshow(self.Dmap, vmax = self.Dmax, vmin = self.Dmin)
+                divider = make_axes_locatable(ax[0])
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                plt.colorbar(img1, cax=cax)
+
+
+                img2 = ax[1].imshow(self.Emap, vmax = self.Emax, vmin = self.Emin)
+                divider = make_axes_locatable(ax[1])
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                plt.colorbar(img2, cax=cax)
+
+                plt.show()
+                plt.close()
 
             return self.Dmap, self.Emap
         else:

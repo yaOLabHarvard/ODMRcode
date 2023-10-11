@@ -954,7 +954,7 @@ def fit_data(xVals,yVals,init_params= None,fit_function= gauss_fit, sort_frequen
     try:
         pOpt,pCov= opt.curve_fit(fit_function,xVals,yVals,p0=init_params, maxfev = maxFev)
     except RuntimeError:
-        print("Cannot find a good fit! Aborted")
+        raise ValueError("Cannot find a good fit! Aborted")
         pOpt = None
         pCov = None
 

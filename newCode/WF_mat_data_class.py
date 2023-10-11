@@ -144,7 +144,7 @@ class WFimage:
         plt.close()
 
 
-    def waterfallPlot(self, lineCut = [[0, 0], [1, 1]], stepSize =1,  spacing = 0.01, plotTrace = False, plot = False):
+    def waterfallPlot(self, lineCut = [[0, 0], [1, 1]], stepSize =1,  spacing = 0.01, plotTrace = False, plotFit = False, plot = False):
         if self.isNorm:
             ## generate lineCut
             dx = lineCut[1][0]-lineCut[0][0]
@@ -190,7 +190,15 @@ class WFimage:
                 datay = self.pointESR(theLine[flag][0], theLine[flag][1])
                 ymax = 1 - datay.min()
                 offset += ymax + spacing
-                ax.plot(datax, datay + offset, '-o', color = 'k', markersize=2)
+                ax.plot(datax, datay + offset, '.', color = 'k', markersize=2)
+                if plotFit and self.isMultfit:
+                    popt = self.optList[(theLine[flag][0], theLine[flag][1])]
+                    try:
+                        for i in np.arange(int(np.floor(len(popt)/3))):
+                            params= popt[1+3*i:4+3*i]
+                            ax.plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params)+ offset, '-', color = 'r')
+                    except TypeError:
+                        print("No good fit was found! Try increase Maxfev or try a better initial guess")
                 flag += 1
 
             ax.set_ylim([1, offset+1+spacing])
@@ -198,7 +206,7 @@ class WFimage:
             if plot:
                 plt.show()
                 plt.close()
-            
+                ##print("haha")
             return fig, ax
 
 
@@ -286,12 +294,14 @@ class WFimage:
                 if initGuess is not None:
                     self.guessFreq = initGuess              
                     self.peakPos = np.array([min(range(len(self.fVals)), key=lambda i: abs(self.fVals[i]-f)) for f in self.guessFreq])
+                    ##print(self.peakPos)
                 elif autofind:
                     self.peakPos = self.singleESRpeakfind(x, y, method='pro', max_peak = max_peak)
                     # print(self.peakPos)
                 else:
                     self.guessFreq = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
                     self.peakPos = np.array([min(range(len(self.fVals)), key=lambda i: abs(self.fVals[i]-f)) for f in self.guessFreq])
+                    ##print(self.peakPos)
                 ## generate real peaks based on the center freqs
                 initParas = mf.generate_pinit(self.fVals[self.peakPos], yVals[self.peakPos])
 
@@ -315,11 +325,19 @@ class WFimage:
         self.sqList = {}
         self.multix = xlist
         self.multiy = ylist
+        guessFreqs = initGuess
         for x in self.multix:
             for y in self.multiy:
                 if initGuess is not None:
-                    # print('mutliesrfit')
-                    pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, initGuess=initGuess)
+                    ##print('mutliesrfit')
+                    pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, initGuess=guessFreqs)
+                    if pOpt is None:
+                        pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, initGuess=initGuess)
+                    if pOpt is not None:
+                       guessFreqs = pOpt[0::3][1:]
+                    else:
+                        guessFreqs = initGuess
+                        
                 else:
                     pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak)
                 self.optList[(x, y)] = pOpt

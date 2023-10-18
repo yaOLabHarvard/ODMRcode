@@ -1071,7 +1071,7 @@ def generate_bounds(numpeaks=2):
 def generate_pinit(freqVals= None, peakHeights= None):
     ## 0 -- baesline; 1 -- intensity A; 2 -- width gamma; 3 -- offset x0
     p_init= np.zeros(3*len(freqVals)+1)
-    gamma = 0.01
+    gamma = 0.015
     p_init[0]= 1
     p_init[1::3]= np.pi*gamma/2*(np.array(peakHeights, dtype= float)-1)
     p_init[2::3]= gamma

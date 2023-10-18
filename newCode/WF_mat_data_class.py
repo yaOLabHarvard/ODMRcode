@@ -100,7 +100,7 @@ class WFimage:
 
         self.isMask = True
 
-    def myFavoriatePlot(self, x = 0, y = 0, withFit = True, fitParas = None):
+    def myFavoriatePlot(self, x = 0, y = 0, maxPeak = 6, withFit = True, fitParas = None):
         if not self.isNorm:
             self.norm()
         if not self.binned:
@@ -108,7 +108,7 @@ class WFimage:
         fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,6))
         ## plot the image
         # IMGplot = ax[0].imshow(self.originalDat[:,:,3].copy())
-        IMGplot = ax[0].imshow(self.binOrigDat[:,:,3].copy())
+        IMGplot = ax[0].imshow(self.dat[:,:,3])
         ax[0].add_patch(Rectangle((y - 2, x -2), 4, 4, fill=None, alpha = 1))
         divider = make_axes_locatable(ax[0])
         cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -122,29 +122,33 @@ class WFimage:
         # ax[1].set_ylim(0.996,1.002)
         if withFit:
             if fitParas is None:
-                peaks = self.singleESRpeakfind(x, y, method = 'pro')
-
+                peaks = self.singleESRpeakfind(x, y, max_peak = maxPeak, method = 'pro')
+                ax[1].plot(self.fVals[peaks], spESR[peaks], 'x')
                 print("Peaks found by Autofind: "+str(self.fVals[peaks]))
                 print("Peak indices found by Autofind: "+ str(peaks))
 
-                popt, pcov, chisq = self.singleESRfit(x, y)
-                print("the Chi square is {}".format(chisq))
-                ax[1].plot(self.fVals[peaks], spESR[peaks], 'x')
+                try:
+                    popt, pcov, chisq = self.singleESRfit(x, y, max_peak = maxPeak)
+                    print("the Chi square is {}".format(chisq))
+                except ValueError:
+                    print("cannot find singleesr")
+                    popt = None
             else:
                 [popt, pcov, chisq] = fitParas
-        
-            try:
-                for i in np.arange(int(np.floor(len(popt)/3))):
-                    params= popt[1+3*i:4+3*i]
-                    ax[1].plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params), '-')
-            except TypeError:
-                print("No good fit was found! Try increase Maxfev or try a better initial guess")
+
+            if popt is not None:
+                npeak = int(np.floor(len(popt)/3))
+            else:
+                npeak = len(peaks)
+                popt = mf.generate_pinit(self.fVals[peaks], spESR[peaks])
+            for i in np.arange(npeak):
+                params = popt[1+3*i:4+3*i]
+                ax[1].plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params), '-')
 
         plt.show()
         plt.close()
 
-
-    def waterfallPlot(self, lineCut = [[0, 0], [1, 1]], stepSize =1,  spacing = 0.01, plotTrace = False, plotFit = False, plot = False):
+    def lineCutGen(self, lineCut = [[0, 0], [1, 1]], stepSize =1):
         if self.isNorm:
             ## generate lineCut
             dx = lineCut[1][0]-lineCut[0][0]
@@ -169,7 +173,11 @@ class WFimage:
             
                 theLine[flag] = pts
                 flag += 1
+            return theLine, nnList
 
+    def waterfallPlot(self, lineCut = [[0, 0], [1, 1]], stepSize =1,  spacing = 0.01, plotTrace = False, plotFit = False, plot = False):
+        
+            theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
             if plotTrace:
                 fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
                 IMGplot = ax.imshow(self.dat[:,:,3].copy())
@@ -184,30 +192,27 @@ class WFimage:
             ## generate plots
             fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,12))
             offset = 0
-            flag = 0
-            for i in nnList:
+            for i in range(len(nnList)):
                 datax = self.fVals
-                datay = self.pointESR(theLine[flag][0], theLine[flag][1])
+                datay = self.pointESR(theLine[i][0], theLine[i][1])
                 ymax = 1 - datay.min()
                 offset += ymax + spacing
                 ax.plot(datax, datay + offset, '.', color = 'k', markersize=2)
                 if plotFit and self.isMultfit:
-                    popt = self.optList[(theLine[flag][0], theLine[flag][1])]
+                    popt = self.optList[(theLine[i][0], theLine[i][1])]
                     try:
-                        for i in np.arange(int(np.floor(len(popt)/3))):
-                            params= popt[1+3*i:4+3*i]
+                        for j in np.arange(int(np.floor(len(popt)/3))):
+                            params= popt[1+3*j:4+3*j]
                             ax.plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params)+ offset, '-', color = 'r')
                     except TypeError:
                         print("No good fit was found! Try increase Maxfev or try a better initial guess")
-                flag += 1
 
             ax.set_ylim([1, offset+1+spacing])
 
             if plot:
                 plt.show()
                 plt.close()
-                ##print("haha")
-            return fig, ax
+
 
 
     def maskContourgen(self):
@@ -252,7 +257,7 @@ class WFimage:
             if min(yVals)>0.996:
                 # print('super low prom')
                 # print('0.0008')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.00025,0.3))
             # elif min(yVals)<0.997 and min(yVals)>0.996:
             #     print('med-low prom')
             #     peakPos, _ = find_peaks(1 - yVals, prominence=(0.0014,0.3))
@@ -308,7 +313,7 @@ class WFimage:
                 ## generate real peaks based on the center freqs
                 initParas = mf.generate_pinit(self.fVals[self.peakPos], yVals[self.peakPos])
                 try:
-                    pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=1000)
+                    pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=1500)
                 except ValueError:
                     raise ValueError("The singleESRfit fails.. pOpt set to be none")
                 # print(pOpt)
@@ -358,6 +363,10 @@ class WFimage:
                         pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak)
                     except ValueError:
                         print("auto guess fails.. Popt set to be none")
+                        pOpt = None
+                        pCov = None
+                        chiSq = None
+
                 self.optList[(x, y)] = pOpt
                 self.covList[(x, y)] = pCov
                 self.sqList[(x, y)] = chiSq
@@ -511,8 +520,8 @@ class WFimage:
     def DandE(self, realx, realy):
         if self.isMultfit:
             theopt = self.optList[(realx, realy)]
-            if theopt is not None and len(self.optList[(realx, realy)][0::3][1:])>=1:
-                peakFreqs = self.optList[(realx, realy)][0::3][1:]
+            if theopt is not None and len(theopt[0::3][1:])>=1:
+                peakFreqs = theopt[0::3][1:]
                 Fmax = max(peakFreqs)
                 Fmin = min(peakFreqs)
                 DD = (Fmin + Fmax)/2
@@ -520,6 +529,20 @@ class WFimage:
                 return DD,EE
             else:
                 return 0, 0
+        else:
+            print("Need to operate multiesrfit first!!")
+
+    def theWidth(self, realx, realy):
+        if self.isMultfit:
+            theopt = self.optList[(realx, realy)]
+            if theopt is not None and len(theopt[2::3])>=1:
+                peakWidth = theopt[2::3]
+                Wfirst = peakWidth[0]
+                Wlast = peakWidth[-1]
+
+                return (Wfirst + Wlast)/2
+            else:
+                return 0
         else:
             print("Need to operate multiesrfit first!!")
 
@@ -567,6 +590,70 @@ class WFimage:
             return self.Dmap, self.Emap
         else:
             print("Need to operate multiesrfit first!!")
+
+    def DElineplot(self, lineCut = [[0, 0], [1, 1]], stepSize =1, plotTrace = False, plotD = False, plotE = False):
+        if self.isMultfit:
+            theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
+            if plotTrace:
+                fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
+                IMGplot = ax.imshow(self.dat[:,:,3].copy())
+                ## switch x and y for imshow
+
+                ax.plot(theLine[:, 1], theLine[:, 0], '.', color='red', markersize=15)
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                plt.colorbar(IMGplot, cax=cax)
+                plt.show()
+                plt.close()
+                ## generate plots
+            fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,12))
+            Dlist = []
+            Elist = []
+            for i in range(len(nnList)):
+                DD, EE = self.DandE(theLine[i][0], theLine[i][1])
+                
+                Dlist.append(DD)
+                Elist.append(EE)
+            if plotD:
+                ax.plot(nnList, Dlist, '.', color = 'r', markersize=2, label = "D (GHz)")
+                ax.set_ylim(0, max(Dlist)*1.01)
+            if plotE:
+                ax.plot(nnList, Elist, '.', color = 'b', markersize=2, label = "E (GHz)")
+                ax.set_ylim(0, max(Elist)*1.01)
+
+            
+
+            plt.show()
+            plt.close()
+
+
+    def DEwidthplot(self, lineCut = [[0, 0], [1, 1]], stepSize =1, plotTrace = False):
+        if self.isMultfit:
+            theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
+            if plotTrace:
+                fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
+                IMGplot = ax.imshow(self.dat[:,:,3].copy())
+                ## switch x and y for imshow
+
+                ax.plot(theLine[:, 1], theLine[:, 0], '.', color='red', markersize=15)
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                plt.colorbar(IMGplot, cax=cax)
+                plt.show()
+                plt.close()
+                ## generate plots
+            fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,12))
+            widthList = []
+            for i in range(len(nnList)):
+                width = self.theWidth(theLine[i][0], theLine[i][1])
+               
+                widthList.append(width)
+
+            ax.plot(nnList, widthList, '.', color = 'r', markersize=2, label = "Width (GHz)")
+
+            plt.show()
+            plt.close()
+
 
     # def NVESRexactfit(self, Fitfreqs, isFourpeaks = True):
     #     ## freq unit in GHz; field unit in G
@@ -743,7 +830,7 @@ class multiWFImage:
         minn = img.min()
         return (2*img - maxx - minn)/(maxx - minn)
 
-    def imageAlign(self, nslice = 3, referN = 0, rr = 20, plot= False):
+    def imageAlign(self, nslice = 3, referN = 0, rr = 20, plot= False, debug = False):
         if self.isROI:
             beforeAlignImg = self.imageStack(Nslice = nslice)
             tmpDat = self.WFList[referN].dat[:,:,nslice].copy()
@@ -755,9 +842,20 @@ class multiWFImage:
                 tmpWF = self.WFList[i]
                 tmp = tmpWF.dat[:,:, nslice].copy()
                 bigImg = self.normImg(tmp)
-                [rx, ry] = tmpWF.imgCorr(bigImg, smallImg, self.rroi, plot = False, rr = rr)
-                print("WF {}: x is found at {} px; y is found at {} px".format(i , rx, ry))
-                shiftXY.append([rx, ry])
+                [tmpx, tmpy] = tmpWF.imgCorr(bigImg, smallImg, self.rroi, plot = debug, rr = rr)
+                print("WF {}: x is found at {} px; y is found at {} px".format(i , tmpx, tmpy))
+                if debug:
+                    flag = int(input("Accept?(0/1)"))
+                    if flag:
+                        rx = tmpx
+                        ry = tmpy
+                    else:
+                        rx = 0
+                        ry = 0
+
+                    shiftXY.append([rx, ry])
+                else:
+                    shiftXY.append([tmpx, tmpy])
             shiftXY = np.array(shiftXY)
             shiftXY = np.array([item - shiftXY[referN] for item in shiftXY])
             for i in range(self.Nfile):

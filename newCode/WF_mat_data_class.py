@@ -257,16 +257,16 @@ class WFimage:
             if min(yVals)>0.996:
                 # print('super low prom')
                 # print('0.0008')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.00025,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.3))
             # elif min(yVals)<0.997 and min(yVals)>0.996:
             #     print('med-low prom')
             #     peakPos, _ = find_peaks(1 - yVals, prominence=(0.0014,0.3))
             elif min(yVals)<0.996 and min(yVals)>0.994:
                 # print('low prom')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0008,0.3))
             elif min(yVals)<0.994 and min(yVals)>0.990:
                 # print('med prom')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0008,0.3))
             elif min(yVals)<0.990 and min(yVals)>0.975:
                 # print('high prom')
                 peakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.3))
@@ -508,14 +508,18 @@ class WFimage:
         return [xpos, ypos]
         
     def shiftDat(self, dx = 0, dy = 0):
-        (xx, yy, _) = np.shape(self.dat)
-        newdat = np.ones(np.shape(self.dat))
-        ##Move it to the correct position!
-        for j in np.arange(xx):
-            for k in np.arange(yy):
-                if j+dx < xx and k+dy < yy:
-                    newdat[int(j+dx),int(k+dy),:]=self.dat[j,k,:]
-        self.dat=newdat
+        if dx == 0 and dy == 0:
+            print("no shifting!")
+            return
+        else:
+            (xx, yy, _) = np.shape(self.dat)
+            newdat = np.ones(np.shape(self.dat))
+            ##Move it to the correct position!
+            for j in np.arange(xx):
+                for k in np.arange(yy):
+                    if j+dx < xx and k+dy < yy:
+                        newdat[int(j+dx),int(k+dy),:]=self.dat[j,k,:]
+            self.dat=newdat
 
     def DandE(self, realx, realy):
         if self.isMultfit:
@@ -838,7 +842,7 @@ class multiWFImage:
             smallImg = tmpDat[self.rroi[0][0]:self.rroi[0][1], self.rroi[1][0]:self.rroi[1][1]].copy()
             shiftXY = []
             for i in range(self.Nfile):
-                print("{}th image corr is processing...".format(i))
+                print(self.fileDir[i] + " file is processing...")
                 tmpWF = self.WFList[i]
                 tmp = tmpWF.dat[:,:, nslice].copy()
                 bigImg = self.normImg(tmp)
@@ -857,11 +861,14 @@ class multiWFImage:
                 else:
                     shiftXY.append([tmpx, tmpy])
             shiftXY = np.array(shiftXY)
-            shiftXY = np.array([item - shiftXY[referN] for item in shiftXY])
+            referr = shiftXY[referN].copy()
             for i in range(self.Nfile):
-                tmpWF = self.WFList[i]
-                tmpWF.shiftDat(dx = -shiftXY[i][0], dy = -shiftXY[i][1])
-
+               if shiftXY[i][0]*shiftXY[i][1] != 0:
+                    shiftXY[i] -= referr
+                    print(shiftXY[i])
+                    tmpWF = self.WFList[i]
+                    tmpWF.shiftDat(dx = -shiftXY[i][0], dy = -shiftXY[i][1])
+            
             aftAlignImg = self.imageStack(Nslice = nslice) 
 
             fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,6))

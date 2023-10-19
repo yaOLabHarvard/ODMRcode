@@ -6,13 +6,14 @@ import pickle
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 # rtfolderpath='C:/Users/esthe/OneDrive/Desktop/VSCode/Plotting/Data/WF/RT CeH9 Data/'
-ltfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data/'
+tfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_T/'
+bfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
 figpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/picture/'
 fileName = 'zfc-150K-2A'
 
 ## for multiple files
 #%%
-MFWF=wf.multiWFImage(ltfolderpath)
+MFWF=wf.multiWFImage(bfolderpath)
 # MFWF.test()
 # # %%
 # picklefolder='F:/NMR/NMR/py_projects/WF/ODMRcode/forEsther/data/'
@@ -22,8 +23,8 @@ MFWF=wf.multiWFImage(ltfolderpath)
 #     pickle.dump(MFWF, f)
 
 # %%
-MFWF.roi(xlow=40, ylow=35, xrange=20, yrange=20, plot=False)
-MFWF.imageAlign(nslice = 5, referN = 0, rr=5, plot = False, debug = False)
+MFWF.roi(xlow=43, ylow=40, xrange=20, yrange=20, plot=False)
+MFWF.imageAlign(nslice = 2, referN = 0, rr=5, plot = True, debug = True)
 
 # %%
 # MFWF.roi(xlow=60, ylow=60, xrange=20, yrange=20, plot=True)
@@ -37,15 +38,15 @@ MFWF.imageAlign(nslice = 5, referN = 0, rr=5, plot = False, debug = False)
 # for single files
 #%%
 # testWF = wf.WFimage(ltfolderpath+fileName)
-currentT = 150
-testWF = MFWF.WFList[-12]
+currentB = 0
+testWF = MFWF.WFList[0]
 testWF.norm()
 
 # %%
 ##initguess = [2.75, 2.9, 3.0, 3.08]
 xlist=np.arange(10,140,1)
 ylist=np.arange(10,140,1)
-testWF.multiESRfit(xlist, ylist, max_peak = 6)
+testWF.multiESRfit(xlist, ylist, max_peak = 4)
 # %%
 DD,EE=testWF.DEmap(plot=False)
 fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15,6))
@@ -62,22 +63,22 @@ divider = make_axes_locatable(ax[1])
 cax = divider.append_axes("right", size="5%", pad=0.05)
 plt.colorbar(img2, cax=cax)
 
-plt.savefig(figpath+"DEmap"+str(currentT)+"K.png")
+plt.savefig(figpath+"DEmap"+str(currentB)+"G.png")
 plt.show()
 plt.close()
 # %%
-px=96
-py=83
+px=63
+py=105
 testWF.myFavoriatePlot(px, py, maxPeak = 8)
-# linecut = [[90, 83],[110, 83]]
-# testWF.waterfallPlot(lineCut = linecut, stepSize = 1,  spacing = 0.01, plotTrace = True,plotFit=True, plot = False)
+# linecut = [[20, 78],[130, 78]]
+# testWF.waterfallPlot(lineCut = linecut, stepSize = 2,  spacing = 0.01, plotTrace = True,plotFit=True, plot = False)
 # %%
 linecut = [[70, 10],[70, 140]]
 testWF.waterfallPlot(lineCut = linecut, stepSize = 5,  spacing = 0.01, plotTrace = True,plotFit=True, plot = False)
-plt.savefig(figpath+"vcut"+str(currentT)+"K.png")
+plt.savefig(figpath+"vcut"+str(currentB)+"G.png")
 linecut = [[10, 80],[140, 80]]
 testWF.waterfallPlot(lineCut = linecut, stepSize = 5,  spacing = 0.01, plotTrace = True,plotFit=True, plot = False)
-plt.savefig(figpath+"hcut"+str(currentT)+"K.png")
+plt.savefig(figpath+"hcut"+str(currentB)+"G.png")
 # %%
 ref = EE[120, 30]
 fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))

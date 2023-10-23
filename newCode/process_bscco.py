@@ -6,20 +6,22 @@ import pickle
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 # rtfolderpath='C:/Users/esthe/OneDrive/Desktop/VSCode/Plotting/Data/WF/RT CeH9 Data/'
-tfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_T/'
+tfolderpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/data/'
 bfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
-figpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/picture/'
+figpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/picture/'
+picklepath='D:/work/py/attodry_lightfield/ODMRcode/newCode/pickle/'
 fileName = 'zfc-150K-2A'
 
 ## for multiple files
 #%%
-MFWF=wf.multiWFImage(bfolderpath)
+MFWF=wf.multiWFImage(tfolderpath)
+MFWF.setFileParameters()
 # MFWF.test()
+#%%
+with open(picklepath + 'bscco_rt_only_0Aand0p5A.pkl', 'rb') as f:
+    MFWF = pickle.load(f)
 # # %%
-# picklefolder='F:/NMR/NMR/py_projects/WF/ODMRcode/forEsther/data/'
-# # with open(picklefolder + 'bscco_rt_only_0Aand0p5A.pkl', 'rb') as f:
-# #     MFWF = pickle.load(f)
-# with open(picklefolder + 'bscco_rt_only_0Aand0p5A.pkl', 'wb') as f:
+# with open(picklepath + 'bscco_rt_only_0Aand0p5A.pkl', 'wb') as f:
 #     pickle.dump(MFWF, f)
 
 # %%
@@ -38,15 +40,17 @@ MFWF.imageAlign(nslice = 2, referN = 0, rr=5, plot = True, debug = True)
 # for single files
 #%%
 # testWF = wf.WFimage(ltfolderpath+fileName)
-currentB = 0
+currentT = 20
 testWF = MFWF.WFList[0]
 testWF.norm()
 
 # %%
-##initguess = [2.75, 2.9, 3.0, 3.08]
-xlist=np.arange(10,140,1)
-ylist=np.arange(10,140,1)
-testWF.multiESRfit(xlist, ylist, max_peak = 4)
+# ##initguess = [2.75, 2.9, 3.0, 3.08]
+# xlist=np.arange(10,140,1)
+# ylist=np.arange(10,140,1)
+# testWF.multiESRfit(xlist, ylist, max_peak = 4)
+MFWF.roi(xlow=10, ylow=10, xrange=130, yrange=130, plot=False)
+MFWF.roiMultiESRfit(max_peak = 6)
 # %%
 DD,EE=testWF.DEmap(plot=False)
 fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15,6))
@@ -63,7 +67,7 @@ divider = make_axes_locatable(ax[1])
 cax = divider.append_axes("right", size="5%", pad=0.05)
 plt.colorbar(img2, cax=cax)
 
-plt.savefig(figpath+"DEmap"+str(currentB)+"G.png")
+plt.savefig(figpath+"DEmap"+str(currentT)+"K.png")
 plt.show()
 plt.close()
 # %%
@@ -103,4 +107,21 @@ linecut = [[10, 80],[140, 80]]
 testWF.DEwidthplot(lineCut = linecut , stepSize =1, plotTrace = True)
 
 # %%
+Emeans = []
+Estds = []
+MFWF.roi(xlow=93, ylow=83, xrange=5, yrange=5, plot=True)
+for tmpWF in MFWF.WFList:
+    DD,EE=tmpWF.DEmap(plot=False)
+    tmpEs = EE[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1]]
+    tmpMean = np.mean(tmpEs)
+    Emeans.append(tmpMean)
+    tmpstd = np.std(tmpEs)
+    Estds.append(tmpstd)
+
+fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
+ax.plot(MFWF.ParaList, Emeans, '-', color = 'r')
+ax.set_ylim(0, 0.2)
+ax.errorbar(MFWF.ParaList, Emeans, yerr = Estds, fmt ='o')
+plt.show()
+plt.close()
 # %%

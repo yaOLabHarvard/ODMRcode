@@ -708,6 +708,7 @@ class multiWFImage:
         self.isAlign = False
         self.um=False #If false, it doesn't convert pixels to micron.
         self.isROIfit = False
+        self.isPara = False
 
 
     def addFile(self, filename = None):
@@ -723,6 +724,12 @@ class multiWFImage:
             self.Nfile += 1
             print("The file has been added! Current Iamge list: \n")
             print(self.fileDir)
+
+    def setFileParameters(self):
+        print("The current file list:")
+        print(self.fileDir)
+        self.ParaList = np.fromstring(input('Enter parameters (for example: 0, 1, 2, 3):'),sep=',')
+        self.isPara = True
 
     def test(self):
         fig, ax = plt.subplots(nrows=self.Nfile, ncols= 1, figsize= (6,6*self.Nfile))

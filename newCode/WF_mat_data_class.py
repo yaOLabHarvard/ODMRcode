@@ -422,7 +422,24 @@ class WFimage:
                             return 0
         
         return 1
+    
+    def multiESRfitAutoCorrection(self, xrange, yrange, guessFreq, epschi = 5e-5, epsy = 1e-3):
+        if self.isMultfit:
+            for x in xrange:
+                for y in yrange:
+                    if self.sqList[(x, y)] is None:
+                        self.sqList[(x, y)] = 1
+                    if self.sqList[(x, y)] > epschi and min(self.dat[x, y]) < 1 - epsy:
+                        try:
+                            pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = len(guessFreq), initGuess=guessFreq)
+                            if chiSq < self.sqList:
+                                    self.optList[(x, y)] = pOpt
+                                    self.covList[(x, y)] = pCov
+                                    self.sqList[(x, y)] = chiSq
 
+                        except(ValueError, RuntimeError) as e:
+                            print("{} {} is not working..")
+                            continue
     
     def multiNpeakplot(self):
         if self.isMultfit:
@@ -544,7 +561,7 @@ class WFimage:
     def DandE(self, realx, realy):
         if self.isMultfit:
             theopt = self.optList[(realx, realy)]
-            print(theopt)
+            
             if theopt is not None and len(theopt[0::3][1:])>=1:
                 peakFreqs = theopt[0::3][1:]
                 Fmax = max(peakFreqs)
@@ -749,10 +766,13 @@ class multiWFImage:
             print("The file has been added! Current Iamge list: \n")
             print(self.fileDir)
 
-    def setFileParameters(self):
+    def setFileParameters(self, parameters = None):
         print("The current file list:")
         print(self.fileDir)
-        self.ParaList = np.fromstring(input('Enter parameters (for example: 0, 1, 2, 3):'),sep=',')
+        if parameters is None:
+            self.ParaList = np.fromstring(input('Enter parameters (for example: 0, 1, 2, 3):'),sep=',')
+        else:
+            self.ParaList = np.array(parameters)
         print("The parameters: {}".format(self.ParaList))
         self.isPara = True
 
@@ -1030,9 +1050,12 @@ class multiWFImage:
             ax[1].plot(self.ParaList, Dmeans, '-', color = 'r')
             ax[1].set_ylim(0, Dymax)
             ax[1].title.set_text("D (GHz)")
-            ax[1].errorbar(self.ParaList, Emeans, yerr = Estds, fmt ='o')
+            ax[1].errorbar(self.ParaList, Dmeans, yerr = Dstds, fmt ='o')
             plt.show()
             plt.close()
+
+        else:
+            print("please generate DE map and input the parameter list")
 
     def lineroiDEvsParas(self, Espacing = 0.1, Dspacing = 0.1):
         if self.isDEmap and self.isPara and self.roiShape == 'line':
@@ -1057,3 +1080,5 @@ class multiWFImage:
                 
             plt.show()
             plt.close()
+        else:
+            print("please generate DE map and input the parameter list also make sure the roi is a line")

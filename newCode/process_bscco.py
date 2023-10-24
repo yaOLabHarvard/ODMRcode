@@ -6,9 +6,9 @@ import pickle
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 # rtfolderpath='C:/Users/esthe/OneDrive/Desktop/VSCode/Plotting/Data/WF/RT CeH9 Data/'
-# homefolderpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/data/'
-labtfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_T/'
-labbfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
+homefolderpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/data/'
+# labtfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_T/'
+# labbfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
 # figpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/picture/'
 # picklepath='D:/work/py/attodry_lightfield/ODMRcode/newCode/pickle/'
 testpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/'
@@ -17,8 +17,8 @@ fileName = 'zfc-150K-2A'
 
 #%%
 ## load multiple files
-MFWF=wf.multiWFImage(testpath)
-MFWF.setFileParameters()
+MFWF=wf.multiWFImage(homefolderpath)
+MFWF.setFileParameters(parameters=[20,150,160,170,180,190,200,210,220,230,240,250,270])
 # MFWF.test()
 #%%
 ## pickle save and load
@@ -35,7 +35,7 @@ MFWF.imageAlign(nslice = 2, referN = 0, rr=5, debug = False)
 
 # %%
 ## pick a roi and do multi esr for all images
-MFWF.roi(xlow=50, ylow=50, xrange=50, yrange=50, plot=True)
+MFWF.roi(xlow=60, ylow=60, xrange=20, yrange=20, plot=True)
 MFWF.roiMultiESRfit()
 
 # %%
@@ -136,4 +136,17 @@ ax.set_ylim(0, 0.2)
 ax.errorbar(MFWF.ParaList, Emeans, yerr = Estds, fmt ='o')
 plt.show()
 plt.close()
+# %%
+# test for averaged roi versus parameters
+MFWF.generateroiDEmap()
+## point
+MFWF.roi(xlow=70, ylow=70, xrange=1, yrange=1, plot=True)
+MFWF.roiDEvsParas()
+## line
+MFWF.roi(xlow=60, ylow=70, xrange=20, yrange=1, plot=True)
+MFWF.roiDEvsParas()
+MFWF.lineroiDEvsParas()
+## square
+MFWF.roi(xlow=70, ylow=70, xrange=5, yrange=5, plot=True)
+MFWF.roiDEvsParas()
 # %%

@@ -6,77 +6,85 @@ import pickle
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 # rtfolderpath='C:/Users/esthe/OneDrive/Desktop/VSCode/Plotting/Data/WF/RT CeH9 Data/'
-tfolderpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/data/'
-bfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
-figpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/picture/'
-picklepath='D:/work/py/attodry_lightfield/ODMRcode/newCode/pickle/'
+# homefolderpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/data/'
+labtfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_T/'
+labbfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
+# figpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/picture/'
+# picklepath='D:/work/py/attodry_lightfield/ODMRcode/newCode/pickle/'
+testpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/'
 fileName = 'zfc-150K-2A'
 
-## for multiple files
+
 #%%
-MFWF=wf.multiWFImage(tfolderpath)
+## load multiple files
+MFWF=wf.multiWFImage(testpath)
 MFWF.setFileParameters()
 # MFWF.test()
 #%%
-with open(picklepath + 'bscco_rt_only_0Aand0p5A.pkl', 'rb') as f:
-    MFWF = pickle.load(f)
+## pickle save and load
+# with open(picklepath + 'bscco_rt_only_0Aand0p5A.pkl', 'rb') as f:
+#     MFWF = pickle.load(f)
 # # %%
 # with open(picklepath + 'bscco_rt_only_0Aand0p5A.pkl', 'wb') as f:
 #     pickle.dump(MFWF, f)
 
 # %%
+## pick a roi and do image correlations
 MFWF.roi(xlow=43, ylow=40, xrange=20, yrange=20, plot=False)
-MFWF.imageAlign(nslice = 2, referN = 0, rr=5, plot = True, debug = True)
+MFWF.imageAlign(nslice = 2, referN = 0, rr=5, debug = False)
 
 # %%
-# MFWF.roi(xlow=60, ylow=60, xrange=20, yrange=20, plot=True)
-# MFWF.roiMultiESRfit()
-# MFWF.roiDEmap(plot=True)
-# %%
-# # %%
-# MFWF.WFList[1].MWintmap(plot = True)
-# # %%
+## pick a roi and do multi esr for all images
+MFWF.roi(xlow=50, ylow=50, xrange=50, yrange=50, plot=True)
+MFWF.roiMultiESRfit()
 
-# for single files
+# %%
+## create multiple de maps and plot them
+MFWF.generateroiDEmap()
+MFWF.plotroiDEmap(withroi=True)
+
+
+# %%
+# This block tests fitting edition
+testWF = MFWF.WFList[0]
+MFWF.roi(xlow=50, ylow=50, xrange=50, yrange=50, plot=True)
+testWF.multiESRfitManualCorrection(MFWF.xr, MFWF.yr, isResume = False)
+
 #%%
+## this block will test the single WFimage files
 # testWF = wf.WFimage(ltfolderpath+fileName)
-currentT = 20
 testWF = MFWF.WFList[0]
 testWF.norm()
 
 # %%
-# ##initguess = [2.75, 2.9, 3.0, 3.08]
-# xlist=np.arange(10,140,1)
-# ylist=np.arange(10,140,1)
-# testWF.multiESRfit(xlist, ylist, max_peak = 4)
-MFWF.roi(xlow=10, ylow=10, xrange=130, yrange=130, plot=False)
-MFWF.roiMultiESRfit(max_peak = 6)
 # %%
-DD,EE=testWF.DEmap(plot=False)
-fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15,6))
-img1 = ax[0].imshow(DD, vmax = 3, vmin = 2.8)
-ax[0].title.set_text("D map (GHz)")
-divider = make_axes_locatable(ax[0])
-cax = divider.append_axes("right", size="5%", pad=0.05)
-plt.colorbar(img1, cax=cax)
+# DD,EE=testWF.DEmap(plot=False)
+# fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15,6))
+# img1 = ax[0].imshow(DD, vmax = 3, vmin = 2.8)
+# ax[0].title.set_text("D map (GHz)")
+# divider = make_axes_locatable(ax[0])
+# cax = divider.append_axes("right", size="5%", pad=0.05)
+# plt.colorbar(img1, cax=cax)
 
 
-img2 = ax[1].imshow(EE, vmax = 0.2, vmin = 0)
-ax[1].title.set_text("E map (GHz)")
-divider = make_axes_locatable(ax[1])
-cax = divider.append_axes("right", size="5%", pad=0.05)
-plt.colorbar(img2, cax=cax)
+# img2 = ax[1].imshow(EE, vmax = 0.2, vmin = 0)
+# ax[1].title.set_text("E map (GHz)")
+# divider = make_axes_locatable(ax[1])
+# cax = divider.append_axes("right", size="5%", pad=0.05)
+# plt.colorbar(img2, cax=cax)
 
-plt.savefig(figpath+"DEmap"+str(currentT)+"K.png")
-plt.show()
-plt.close()
+# plt.savefig(figpath+"DEmap"+str(currentT)+"K.png")
+# plt.show()
+# plt.close()
 # %%
+## test for single pt esr
 px=63
 py=105
 testWF.myFavoriatePlot(px, py, maxPeak = 8)
 # linecut = [[20, 78],[130, 78]]
 # testWF.waterfallPlot(lineCut = linecut, stepSize = 2,  spacing = 0.01, plotTrace = True,plotFit=True, plot = False)
 # %%
+## create linecuts for single image
 linecut = [[70, 10],[70, 140]]
 testWF.waterfallPlot(lineCut = linecut, stepSize = 5,  spacing = 0.01, plotTrace = True,plotFit=True, plot = False)
 plt.savefig(figpath+"vcut"+str(currentB)+"G.png")
@@ -84,6 +92,7 @@ linecut = [[10, 80],[140, 80]]
 testWF.waterfallPlot(lineCut = linecut, stepSize = 5,  spacing = 0.01, plotTrace = True,plotFit=True, plot = False)
 plt.savefig(figpath+"hcut"+str(currentB)+"G.png")
 # %%
+## B/H plot for single image
 ref = EE[120, 30]
 fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
 img = ax.imshow(EE/ref, vmax = 1.5, vmin = 0)
@@ -95,18 +104,21 @@ plt.savefig(figpath+"BHmap"+str(currentT)+"K.png")
 plt.show()
 plt.close()
 # %%
+## D and E line plot for single image
 linecut = [[70, 10],[70, 140]]
 testWF.DElineplot(lineCut = linecut , stepSize =1, plotTrace = True, plotD = False, plotE = True)
 linecut = [[10, 80],[140, 80]]
 testWF.DElineplot(lineCut = linecut , stepSize =1, plotTrace = True, plotD = False, plotE = True)
 
 # %%
+## outer peak width plot for single image
 linecut = [[70, 10],[70, 140]]
 testWF.DEwidthplot(lineCut = linecut , stepSize =1, plotTrace = True)
 linecut = [[10, 80],[140, 80]]
 testWF.DEwidthplot(lineCut = linecut , stepSize =1, plotTrace = True)
 
 # %%
+## splitting average over a roi versus all parameters for multiple images
 Emeans = []
 Estds = []
 MFWF.roi(xlow=93, ylow=83, xrange=5, yrange=5, plot=True)

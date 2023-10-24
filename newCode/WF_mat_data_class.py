@@ -38,6 +38,7 @@ class WFimage:
         self.isMask = False
         self.isNpeak = False
         self.binned=False
+        self.resumeX = 0
 
     def binning(self, binsize = 1):
         if binsize == 1:
@@ -373,30 +374,49 @@ class WFimage:
             print("{}-th row has completed".format(x))
 
         self.isMultfit = True
-
     
-    def multiESRfitManualCorrection(self, eps = 5e-5,  isResume = False):
-        if self.isMultfit and self.isMask:
-            if not isResume:
-                xrange = self.multix
-                yrange = self.multiy
-            else:
+    def plotAndCorrect(self, x, y):
+        print("current point: x {}; y {}".format(x, y))
+        self.myFavoriatePlot(x, y)
+        if int(input("Looks good?(1/0)")):
+            return -1, 0
+        else:
+            guessFreq = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
+            pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = len(guessFreq), initGuess=guessFreq)
+            self.myFavoriatePlot(x, y, fitParas=[pOpt, pCov, chiSq])
+            asw = int(input("Accept?(1/0)"))
+        return asw, [pOpt, pCov, chiSq]
+    
+    def multiESRfitManualCorrection(self, xrange, yrange, epschi = 5e-5, epsy = 1e-3,  isResume = False):
+        if self.isMultfit:
+            if isResume:
                 xindex = np.where(self.multix == self.resumeX)[0][0]
+                print("The edition will start from row {}".format(xindex))
                 xrange = self.multix[xindex:]
             for x in xrange:
                 for y in yrange:
-                    if self.sqList[(x, y)] > eps and self.dataMask[x, y]:
+                    if self.sqList[(x, y)] is None:
+                        self.sqList[(x, y)] = 1
+                    if self.sqList[(x, y)] > epschi and min(self.dat[x, y]) < 1 - epsy:
                         try:
-                            self.myFavoriatePlot(x, y)
-                            self.guessFreq = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
-                            pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = len(self.guessFreq), initGuess=self.guessFreq)
-                            self.myFavoriatePlot(x, y, fitParas=[pOpt, pCov, chiSq])
-                            asw = int(input("Accept?(1/0)"))
-                            if asw:
-                                self.optList[(x, y)] = pOpt
-                                self.covList[(x, y)] = pCov
-                                self.sqList[(x, y)] = chiSq
-                        except KeyboardInterrupt:
+                            isRetry = 1
+                            while isRetry:
+                                asw1, fitList = self.plotAndCorrect(x, y)
+                                if asw1 > 0:
+                                    print(fitList[0])
+                                    self.optList[(x, y)] = fitList[0]
+                                    self.covList[(x, y)] = fitList[1]
+                                    self.sqList[(x, y)] = fitList[2]
+                                    isRetry = 0
+                                elif asw1 == 0:
+                                    asw = int(input("Want to retry?(1/0)"))
+                                    if asw == 0:
+                                        isRetry = 0
+                                else:
+                                    break
+
+                        except(ValueError, RuntimeError) as e:
+                            print(e)
                             self.resumeX = x
                             print("Force to stop!")
                             return 0
@@ -524,6 +544,7 @@ class WFimage:
     def DandE(self, realx, realy):
         if self.isMultfit:
             theopt = self.optList[(realx, realy)]
+            print(theopt)
             if theopt is not None and len(theopt[0::3][1:])>=1:
                 peakFreqs = theopt[0::3][1:]
                 Fmax = max(peakFreqs)
@@ -703,12 +724,15 @@ class multiWFImage:
         print("WFList Size: " + str(self.Nfile))
         print("all mat files have been loaded successfully! The data has been normalized and binned!")
     
-            
+        (self.X, self.Y, _) = np.shape(self.WFList[0].dat)
         self.isROI = False
         self.isAlign = False
         self.um=False #If false, it doesn't convert pixels to micron.
         self.isROIfit = False
+        self.isDEmap = False
         self.isPara = False
+
+        self.roiShape = 'point'
 
 
     def addFile(self, filename = None):
@@ -729,6 +753,7 @@ class multiWFImage:
         print("The current file list:")
         print(self.fileDir)
         self.ParaList = np.fromstring(input('Enter parameters (for example: 0, 1, 2, 3):'),sep=',')
+        print("The parameters: {}".format(self.ParaList))
         self.isPara = True
 
     def test(self):
@@ -822,13 +847,21 @@ class multiWFImage:
         self.yr=np.arange(self.ylow,self.yhigh,1)
         self.rroi= [[self.xlow,self.xhigh],[self.ylow,self.yhigh]]
         self.isROI = True
+        self.mgSize = 3
+
+        if len(self.xr) > 1 and len(self.yr) > 1:
+            self.roiShape = 'square'
+        elif len(self.xr) == 1 and len(self.yr) == 1:
+            self.roiShape = 'point'
+        else:
+            self.roiShape = 'line'
 
         if plot:
             image = self.imageStack()
             fig,ax=plt.subplots(1,1)
             ax.set_title("average image stack with roi")
             imgs=ax.imshow(image, interpolation=None)
-            ax.add_patch(Rectangle((self.ylow, self.xlow), self.yhigh-self.ylow, self.xhigh-self.xlow, fill=None, alpha = 1))
+            ax.add_patch(Rectangle((self.ylow, self.xlow), self.yhigh-self.ylow+self.mgSize, self.xhigh-self.xlow+self.mgSize, fill=None, alpha = 1))
             divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(imgs, cax=cax)
@@ -841,7 +874,7 @@ class multiWFImage:
         minn = img.min()
         return (2*img - maxx - minn)/(maxx - minn)
 
-    def imageAlign(self, nslice = 3, referN = 0, rr = 20, plot= False, debug = False):
+    def imageAlign(self, nslice = 3, referN = 0, rr = 20, debug = False):
         if self.isROI:
             beforeAlignImg = self.imageStack(Nslice = nslice)
             tmpDat = self.WFList[referN].dat[:,:,nslice].copy()
@@ -910,39 +943,33 @@ class multiWFImage:
         else:
             print("This function can only operate after assgining a roi!!")
 
-    def roiDEmap(self, plot = False):
+    def generateroiDEmap(self):
         if self.isROIfit:
+            self.roiDmap = np.zeros((self.X, self.Y, self.Nfile))
+            self.roiEmap = np.zeros((self.X, self.Y, self.Nfile))
+
             for i in range(self.Nfile):
                 tmpWF = self.WFList[i]
-                self.roiDmap = np.zeros((len(self.xr), len(self.yr), self.Nfile))
-                self.roiEmap = np.zeros((len(self.xr), len(self.yr), self.Nfile))
-                xindex = 0
-                yindex = 0
                 for x in self.xr:
                     for y in self.yr:
                         D, E = tmpWF.DandE(x, y)
-                        self.roiDmap[xindex, yindex, i] = D
-                        self.roiEmap[xindex, yindex, i] = E
-
-            if plot:
-                fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
-                image = self.imageStack()
-                ax.set_title("average image stack with roi")
-                imgs=ax.imshow(image, interpolation=None)
-                ax.add_patch(Rectangle((self.ylow, self.xlow), self.yhigh-self.ylow, self.xhigh-self.xlow, fill=None, alpha = 1))
-                divider = make_axes_locatable(ax)
-                cax = divider.append_axes("right", size="5%", pad=0.05)
-                plt.colorbar(imgs, cax=cax)
-
-                fig, ax = plt.subplots(nrows=2, ncols= self.Nfile, figsize= (6*self.Nfile,6*2))
+                        self.roiDmap[x, y, i] = D
+                        self.roiEmap[x, y, i] = E
+                print("D & E maps for image {} has been generated!".format(i))
+            self.isDEmap = True
+            
+    def plotroiDEmap(self, refN = None, withroi = False):
+        if self.isDEmap:
+            if refN is None:
+                fig, ax = plt.subplots(nrows=2, ncols= self.Nfile, figsize= (7*self.Nfile,6*2))
                 for i in range(self.Nfile):
-                    dmap = ax[0, i].imshow(self.roiDmap[:, :, i])
+                    dmap = ax[0, i].imshow(self.roiDmap[:, :, i], vmax = 3, vmin = 2.8)
                     ax[0, i].set_title("roi D map")
                     divider = make_axes_locatable(ax[0, i])
                     cax = divider.append_axes("right", size="5%", pad=0.05)
                     plt.colorbar(dmap, cax=cax)
 
-                    emap = ax[1, i].imshow(self.roiEmap[:, :, i])
+                    emap = ax[1, i].imshow(self.roiEmap[:, :, i], vmax = 0.2, vmin = 0)
                     ax[1, i].set_title("roi E map")
                     divider = make_axes_locatable(ax[1, i])
                     cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -950,5 +977,83 @@ class multiWFImage:
 
                 plt.show()
                 plt.close()
+            else:
+                fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15,6))
+                dmap = ax[0].imshow(self.roiDmap[:, :, refN], vmax = 3, vmin = 2.8)
+                if withroi:
+                    ax[0].add_patch(Rectangle((self.ylow, self.xlow), self.yhigh-self.ylow+self.mgSize, self.xhigh-self.xlow+self.mgSize, fill=None, alpha = 1))
+                ax[0].title.set_text("D map (GHz)")
+                divider = make_axes_locatable(ax[0])
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                plt.colorbar(dmap, cax=cax)
+
+
+                emap = ax[1].imshow(self.roiEmap[:, :, refN], vmax = 0.2, vmin = 0)
+                if withroi:
+                    ax[1].add_patch(Rectangle((self.ylow, self.xlow), self.yhigh-self.ylow+self.mgSize, self.xhigh-self.xlow+self.mgSize, fill=None, alpha = 1))
+                ax[1].title.set_text("E map (GHz)")
+                divider = make_axes_locatable(ax[1])
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                plt.colorbar(emap, cax=cax)
+
+                plt.show()
+                plt.close()
         else:
-            print("This function can only operate after operating ROIfit!!")
+            print("This function can only operate after operating ROIDEmaps!!")
+
+    def roiDEvsParas(self, Eymax = 0.2, Dymax = 3):
+        if self.isDEmap and self.isPara:
+            Emeans = []
+            Estds = []
+            Dmeans = []
+            Dstds = []
+
+            for i in range(self.Nfile):
+                tmpEs = self.roiEmap[self.rroi[0][0]:self.rroi[0][1],self.rroi[1][0]:self.rroi[1][1], i]
+                tmpEMean = np.mean(tmpEs)
+                Emeans.append(tmpEMean)
+                tmpEstd = np.std(tmpEs)
+                Estds.append(tmpEstd)
+
+                tmpDs = self.roiDmap[self.rroi[0][0]:self.rroi[0][1],self.rroi[1][0]:self.rroi[1][1], i]
+                tmpDMean = np.mean(tmpDs)
+                Dmeans.append(tmpDMean)
+                tmpDstd = np.std(tmpDs)
+                Dstds.append(tmpDstd)
+
+            fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15,6))
+            ax[0].plot(self.ParaList, Emeans, '-', color = 'r')
+            ax[0].set_ylim(0, Eymax)
+            ax[0].title.set_text("E (GHz)")
+            ax[0].errorbar(self.ParaList, Emeans, yerr = Estds, fmt ='o')
+
+            ax[1].plot(self.ParaList, Dmeans, '-', color = 'r')
+            ax[1].set_ylim(0, Dymax)
+            ax[1].title.set_text("D (GHz)")
+            ax[1].errorbar(self.ParaList, Emeans, yerr = Estds, fmt ='o')
+            plt.show()
+            plt.close()
+
+    def lineroiDEvsParas(self, Espacing = 0.1, Dspacing = 0.1):
+        if self.isDEmap and self.isPara and self.roiShape == 'line':
+            fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,12))
+            Eoffset = 0
+            Doffset = 0
+            if len(self.xr) == 1:
+                datax = self.yr
+            else:
+                datax = self.xr
+            for i in range(self.Nfile):
+                
+                dataE = self.roiEmap[self.rroi[0][0]:self.rroi[0][1],self.rroi[1][0]:self.rroi[1][1], i]
+                dataD = self.roiDmap[self.rroi[0][0]:self.rroi[0][1],self.rroi[1][0]:self.rroi[1][1], i]
+                Espan = dataE.max() - dataE.min()
+                Dspan = dataD.max() - dataD.min()
+
+                ax[0].plot(datax, dataE + Eoffset, '-.', color = 'k', markersize=2)
+                ax[1].plot(datax, dataD + Doffset, '-.', color = 'k', markersize=2)
+                Eoffset += Espan + Espacing
+                Doffset += Dspan + Dspacing
+                
+            plt.show()
+            plt.close()

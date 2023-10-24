@@ -35,6 +35,7 @@ class WFimage:
         self.dataMask = None
         self.isNorm = False
         self.isMultfit = False
+        self.isErrordetect = False
         self.isMask = False
         self.isNpeak = False
         self.binned=False
@@ -331,9 +332,10 @@ class WFimage:
             self.norm()
         if not self.binned:
             self.binning()
-        self.optList = {}
-        self.covList = {}
-        self.sqList = {}
+        if not self.isMultfit:
+            self.optList = {}
+            self.covList = {}
+            self.sqList = {}
         self.multix = xlist
         self.multiy = ylist
         guessFreqs = initGuess
@@ -356,6 +358,7 @@ class WFimage:
                                 pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak)
                             except ValueError:
                                 print("auto guess fails.. Popt set to be none")
+                                
 
                     
                         
@@ -377,7 +380,7 @@ class WFimage:
     
     def plotAndCorrect(self, x, y):
         print("current point: x {}; y {}".format(x, y))
-        self.myFavoriatePlot(x, y)
+        self.myFavoriatePlot(x, y, fitParas=[self.optList[(x, y)], self.covList[(x, y)], self.sqList[(x, y)]])
         if int(input("Looks good?(1/0)")):
             return -1, 0
         else:
@@ -387,58 +390,80 @@ class WFimage:
             asw = int(input("Accept?(1/0)"))
         return asw, [pOpt, pCov, chiSq]
     
-    def multiESRfitManualCorrection(self, xrange, yrange, epschi = 5e-5, epsy = 1e-3,  isResume = False):
+    def fitErrordetection(self, xrange, yrange, epschi = 5e-5, epsy = 1e-3):
         if self.isMultfit:
+            self.errorIndex = []
+            for x in xrange:
+                for y in yrange:
+                    if self.sqList[(x, y)] is None:
+                        self.sqList[(x, y)] = 1
+                    if self.sqList[(x, y)] > epschi and min(self.dat[x, y]) < 1 - epsy:
+                        self.errorIndex.append([x,y])
+            
+            self.isErrordetect = True
+        else:
+            print("Please do multiesr first!")
+
+    def multiESRfitManualCorrection(self, isResume = False):
+        if self.isErrordetect:
             if isResume:
-                xindex = np.where(self.multix == self.resumeX)[0][0]
-                print("The edition will start from row {}".format(xindex))
-                xrange = self.multix[xindex:]
-            for x in xrange:
-                for y in yrange:
-                    if self.sqList[(x, y)] is None:
-                        self.sqList[(x, y)] = 1
-                    if self.sqList[(x, y)] > epschi and min(self.dat[x, y]) < 1 - epsy:
-                        try:
-                            isRetry = 1
-                            while isRetry:
-                                asw1, fitList = self.plotAndCorrect(x, y)
-                                if asw1 > 0:
-                                    self.optList[(x, y)] = fitList[0]
-                                    self.covList[(x, y)] = fitList[1]
-                                    self.sqList[(x, y)] = fitList[2]
-                                    isRetry = 0
-                                elif asw1 == 0:
-                                    asw = int(input("Want to retry?(1/0)"))
-                                    if asw == 0:
-                                        isRetry = 0
-                                else:
-                                    break
+                currentIndex = self.resumeIndex
+            else:
+                currentIndex = 0
+            errorList = self.errorIndex[currentIndex:]
+            for [x, y] in errorList:
+                try:
+                    isRetry = 1
+                    while isRetry:
+                        asw1, fitList = self.plotAndCorrect(x, y)
+                        if asw1 > 0:
+                            self.optList[(x, y)] = fitList[0]
+                            self.covList[(x, y)] = fitList[1]
+                            self.sqList[(x, y)] = fitList[2]
+                            isRetry = 0
+                        elif asw1 == 0:
+                            asw2 = int(input("Want to retry?(1/0)"))
+                            if asw2 == 0:
+                                isRetry = 0
+                        else:
+                            break
 
-                        except(ValueError, RuntimeError) as e:
-                            print(e)
-                            self.resumeX = x
-                            print("Force to stop!")
-                            return 0
-        
-        return 1
+                except(ValueError, RuntimeError, IndexError) as e:
+                    print(e)
+                    self.resumeIndex = currentIndex
+                    print("Force to stop!")
+                    return 0
+                
+                currentIndex += 1
+            self.resumeIndex = 0
+        print("manual error correction finished!")
+
     
-    def multiESRfitAutoCorrection(self, xrange, yrange, guessFreq, epschi = 5e-5, epsy = 1e-3):
-        if self.isMultfit:
-            for x in xrange:
-                for y in yrange:
-                    if self.sqList[(x, y)] is None:
-                        self.sqList[(x, y)] = 1
-                    if self.sqList[(x, y)] > epschi and min(self.dat[x, y]) < 1 - epsy:
-                        try:
-                            pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = len(guessFreq), initGuess=guessFreq)
-                            if chiSq < self.sqList:
-                                    self.optList[(x, y)] = pOpt
-                                    self.covList[(x, y)] = pCov
-                                    self.sqList[(x, y)] = chiSq
+    def multiESRfitAutoCorrection(self, guessFreq, isResume = False, forced = False):
+        if self.isErrordetect:
+            if isResume:
+                currentIndex = self.resumeIndex
+            else:
+                currentIndex = 0
+            errorList = self.errorIndex[currentIndex:]
+            for [x, y] in errorList:
+                try:
+                    pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = len(guessFreq), initGuess=guessFreq)
+                    if forced:
+                        condition = True
+                    else:
+                        condition = (chiSq < self.sqList[(x, y)])
 
-                        except(ValueError, RuntimeError) as e:
-                            print("{} {} is not working..")
-                            continue
+                    if condition:
+                        self.optList[(x, y)] = pOpt
+                        self.covList[(x, y)] = pCov
+                        self.sqList[(x, y)] = chiSq
+                        print("{} {} has been corrected..".format(x, y))
+
+                except(ValueError, RuntimeError, IndexError) as e:
+                    print("{} {} is not working..".format(x, y))
+                    continue
+            print("auto error correction finished!")
     
     def multiNpeakplot(self):
         if self.isMultfit:

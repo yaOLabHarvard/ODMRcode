@@ -35,7 +35,7 @@ MFWF.imageAlign(nslice = 2, referN = 0, rr=5, debug = False)
 
 # %%
 ## pick a roi and do multi esr for all images
-MFWF.roi(xlow=60, ylow=60, xrange=20, yrange=20, plot=True)
+MFWF.roi(xlow=80, ylow=80, xrange=10, yrange=10, plot=True)
 MFWF.roiMultiESRfit()
 
 # %%
@@ -45,11 +45,17 @@ MFWF.plotroiDEmap(withroi=True)
 
 
 # %%
-# This block tests fitting edition
+# This block tests manual correction
 testWF = MFWF.WFList[0]
-MFWF.roi(xlow=50, ylow=50, xrange=50, yrange=50, plot=True)
-testWF.multiESRfitManualCorrection(MFWF.xr, MFWF.yr, isResume = False)
-
+MFWF.roi(xlow=80, ylow=80, xrange=10, yrange=10, plot=True)
+testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = 2e-5)
+testWF.multiESRfitManualCorrection(isResume = False)
+# %%
+# This block tests auto correction
+guessfound = [2.87, 2.91,2.95,3]
+testWF.multiESRfitAutoCorrection(guessfound, forced = False, isResume = True)
+#%%
+testWF.multiESRfitManualCorrection(isResume = True)
 #%%
 ## this block will test the single WFimage files
 # testWF = wf.WFimage(ltfolderpath+fileName)

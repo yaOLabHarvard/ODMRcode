@@ -403,7 +403,6 @@ class WFimage:
                             while isRetry:
                                 asw1, fitList = self.plotAndCorrect(x, y)
                                 if asw1 > 0:
-                                    print(fitList[0])
                                     self.optList[(x, y)] = fitList[0]
                                     self.covList[(x, y)] = fitList[1]
                                     self.sqList[(x, y)] = fitList[2]

@@ -287,7 +287,7 @@ class WFimage:
             top_peak = peak_indices_sorted[:max_peak]
             return top_peak
 
-    def singleESRfit(self, x = 0, y = 0,max_peak = 4, eps = .5e-3, autofind = True, initGuess = None):
+    def singleESRfit(self, x = 0, y = 0,max_peak = 4, epsy = .5e-4, autofind = True, initGuess = None):
         if not self.isNorm:
             print("normalize first to enable the fit")
             exit(0)
@@ -297,7 +297,7 @@ class WFimage:
                 exit(0)
             else:
                 yVals = self.pointESR(x, y)
-                if 1 - yVals.min() < eps:
+                if 1 - yVals.min() < epsy:
                     print("data is too flat! skipping..")
                     return None, None, None
                 # print(yVals)
@@ -327,7 +327,7 @@ class WFimage:
                     chiSq = 1
                 return pOpt, pCov, chiSq
 
-    def multiESRfit(self, xlist, ylist, max_peak = 4, initGuess = None):
+    def multiESRfit(self, xlist, ylist, max_peak = 4, epsy = .5e-4, initGuess = None):
         if not self.isNorm: #Added by Esther 20230524
             self.norm()
         if not self.binned:
@@ -343,7 +343,7 @@ class WFimage:
             for y in self.multiy:
                 if initGuess is not None:
                     try:
-                        pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, initGuess=guessFreqs)
+                        pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, epsy = epsy, initGuess=guessFreqs)
                         if pOpt is not None:
                             guessFreqs = pOpt[0::3][1:]
                         else:
@@ -351,11 +351,11 @@ class WFimage:
                     except ValueError:
                         print("manual guess fails.. trying init guess")
                         try:
-                            pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, initGuess=initGuess)
+                            pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, epsy = epsy, initGuess=initGuess)
                         except ValueError:
                             print("init guess fails.. trying auto guess")
                             try:
-                                pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak)
+                                pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, epsy = epsy)
                             except ValueError:
                                 print("auto guess fails.. Popt set to be none")
                                 
@@ -364,7 +364,7 @@ class WFimage:
                         
                 else:
                     try:
-                        pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak)
+                        pOpt, pCov, chiSq = self.singleESRfit(x, y,epsy = epsy, max_peak = max_peak)
                     except ValueError:
                         print("auto guess fails.. Popt set to be none")
                         pOpt = None
@@ -449,6 +449,8 @@ class WFimage:
             for [x, y] in errorList:
                 try:
                     pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = len(guessFreq), initGuess=guessFreq)
+                    if chiSq is None:
+                        chiSq = 1
                     if forced:
                         condition = True
                     else:

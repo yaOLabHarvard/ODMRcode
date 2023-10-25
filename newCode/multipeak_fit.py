@@ -666,7 +666,7 @@ def computeShifts(filename, *args):
         pCov= args[1]
         rVal= args[2]
 
-    numPeaks= (len(pOpt)-1)/3;
+    numPeaks= (len(pOpt)-1)/3
     bckgnd= pOpt[0]
     amplitudeIndices= np.arange(0,3*numPeaks,3,dtype='int')+1
     linewidthIndices= amplitudeIndices+1
@@ -706,7 +706,7 @@ def computeShifts_lin_bkg(filename, *args):
         pCov= args[1]
         rVal= args[2]
 
-    numPeaks= (len(pOpt)-2)/3;
+    numPeaks= (len(pOpt)-2)/3
     slope= pOpt[0]
     intercept= pOpt[1]
     amplitudeIndices= np.arange(0,3*numPeaks,3,dtype='int')+2
@@ -1071,7 +1071,7 @@ def generate_bounds(numpeaks=2):
 def generate_pinit(freqVals= None, peakHeights= None):
     ## 0 -- baesline; 1 -- intensity A; 2 -- width gamma; 3 -- offset x0
     p_init= np.zeros(3*len(freqVals)+1)
-    gamma = 0.015
+    gamma = 0.025
     p_init[0]= 1
     p_init[1::3]= np.pi*gamma/2*(np.array(peakHeights, dtype= float)-1)
     p_init[2::3]= gamma

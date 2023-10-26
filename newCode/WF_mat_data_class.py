@@ -11,7 +11,7 @@ from scipy.signal import find_peaks
 from scipy.signal import correlate2d
 import scipy.optimize as opt
 from scipy.optimize import fsolve, root
-import math
+import pickle
 
 ## important: only the pyplot.imshow will swap x and y axis as the output
 # import scipy as sp
@@ -23,6 +23,10 @@ import os
 # filename = '100xobj_Bz3A.mat'
 gamma=2.8025e-3 #GHz/G
 
+## fitting parameters
+epslion_y = 1e-3
+peak_width = 0.015 ## GHz
+max_repeat = 1000
 
 ##My comment
 
@@ -137,12 +141,16 @@ class WFimage:
                     popt = None
             else:
                 [popt, pcov, chisq] = fitParas
+                print("peak parameters: {}".format(popt))
 
             if popt is not None:
                 npeak = int(np.floor(len(popt)/3))
-            else:
+            elif fitParas is None:
                 npeak = len(peaks)
                 popt = mf.generate_pinit(self.fVals[peaks], spESR[peaks])
+            else:
+                npeak = 0
+
             for i in np.arange(npeak):
                 params = popt[1+3*i:4+3*i]
                 ax[1].plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params), '-')
@@ -287,7 +295,7 @@ class WFimage:
             top_peak = peak_indices_sorted[:max_peak]
             return top_peak
 
-    def singleESRfit(self, x = 0, y = 0,max_peak = 4, epsy = .5e-4, autofind = True, initGuess = None):
+    def singleESRfit(self, x = 0, y = 0,max_peak = 4, epsy = epslion_y, autofind = True, initGuess = None):
         if not self.isNorm:
             print("normalize first to enable the fit")
             exit(0)
@@ -315,7 +323,7 @@ class WFimage:
                 ## generate real peaks based on the center freqs
                 initParas = mf.generate_pinit(self.fVals[self.peakPos], yVals[self.peakPos])
                 try:
-                    pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=1500)
+                    pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=max_repeat)
                 except ValueError:
                     raise ValueError("The singleESRfit fails.. pOpt set to be none")
                 # print(pOpt)
@@ -327,7 +335,7 @@ class WFimage:
                     chiSq = 1
                 return pOpt, pCov, chiSq
 
-    def multiESRfit(self, xlist, ylist, max_peak = 4, epsy = .5e-4, initGuess = None):
+    def multiESRfit(self, xlist, ylist, max_peak = 4, epsy = epslion_y, initGuess = None):
         if not self.isNorm: #Added by Esther 20230524
             self.norm()
         if not self.binned:
@@ -390,7 +398,7 @@ class WFimage:
             asw = int(input("Accept?(1/0)"))
         return asw, [pOpt, pCov, chiSq]
     
-    def fitErrordetection(self, xrange, yrange, epschi = 5e-5, epsy = 1e-3):
+    def fitErrordetection(self, xrange, yrange, epschi = 5e-5, epsy = epslion_y):
         if self.isMultfit:
             self.errorIndex = []
             for x in xrange:
@@ -772,9 +780,11 @@ class multiWFImage:
         self.isAlign = False
         self.um=False #If false, it doesn't convert pixels to micron.
         self.isROIfit = False
+        self.ROIfitsaved = False
         self.isDEmap = False
         self.isPara = False
 
+        self.imgShift = np.zeros((self.Nfile, 2))
         self.roiShape = 'point'
 
 
@@ -801,6 +811,40 @@ class multiWFImage:
             self.ParaList = np.array(parameters)
         print("The parameters: {}".format(self.ParaList))
         self.isPara = True
+
+    def dumpFitResult(self, picklepath = None):
+        if self.isROIfit:
+            for i in range(self.Nfile):
+                tmp = [self.WFList[i].optList, self.WFList[i].sqList, self.imgShift[i]]
+                filename = self.fileDir[i].split('.')[0] + '_fit.pkl'
+                if picklepath is None:
+                    picklepath = self.folderPath + 'pickle/'
+                    if not os.path.exists(picklepath):
+                        os.makedirs(picklepath)
+                with open(picklepath + filename, 'wb') as f:
+                    pickle.dump(tmp, f)
+                    print("{} file has been dumped!".format(i))
+
+            self.ROIfitsaved = True
+
+    def loadFitResult(self, picklepath = None):
+        if self.isROIfit:
+            for i in range(self.Nfile):
+                filename = self.fileDir[i].split('.')[0] + '_fit.pkl'
+                if picklepath is None:
+                    picklepath = self.folderPath + 'pickle/'
+                    if not os.path.exists(picklepath):
+                        os.makedirs(picklepath)
+                with open(picklepath + filename, 'rb') as f:
+                    tmpWF = self.WFList[i]
+                    [tmpWF.optList, tmpWF.sqList, self.imgShift[i]] = pickle.load(f)
+                    print("{} file has been loaded!".format(i))
+                    if not self.isAlign:
+                        tmpWF.shiftDat(dx = -self.imgShift[i][0], dy = -self.imgShift[i][1])
+
+            self.ROIfitloaded = True
+
+
 
     def test(self):
         fig, ax = plt.subplots(nrows=self.Nfile, ncols= 1, figsize= (6,6*self.Nfile))
@@ -951,10 +995,12 @@ class multiWFImage:
             for i in range(self.Nfile):
                if shiftXY[i][0]*shiftXY[i][1] != 0:
                     shiftXY[i] -= referr
-                    print(shiftXY[i])
+                    if debug:
+                        print(shiftXY[i])
                     tmpWF = self.WFList[i]
                     tmpWF.shiftDat(dx = -shiftXY[i][0], dy = -shiftXY[i][1])
             
+            self.imgShift = shiftXY
             aftAlignImg = self.imageStack(Nslice = nslice) 
 
             fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,6))
@@ -1094,8 +1140,8 @@ class multiWFImage:
                 datax = self.xr
             for i in range(self.Nfile):
                 
-                dataE = self.roiEmap[self.rroi[0][0]:self.rroi[0][1],self.rroi[1][0]:self.rroi[1][1], i]
-                dataD = self.roiDmap[self.rroi[0][0]:self.rroi[0][1],self.rroi[1][0]:self.rroi[1][1], i]
+                dataE = self.roiEmap[self.rroi[0][0]:self.rroi[0][1],self.rroi[1][0]:self.rroi[1][1], i].flatten()
+                dataD = self.roiDmap[self.rroi[0][0]:self.rroi[0][1],self.rroi[1][0]:self.rroi[1][1], i].flatten()
                 Espan = dataE.max() - dataE.min()
                 Dspan = dataD.max() - dataD.min()
 

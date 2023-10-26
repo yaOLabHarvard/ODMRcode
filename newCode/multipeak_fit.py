@@ -1068,10 +1068,13 @@ def generate_bounds(numpeaks=2):
     lb[3::3]= 0; ub[3::3]= np.inf  # frequency
     return lb, ub
 
-def generate_pinit(freqVals= None, peakHeights= None):
+def generate_pinit(freqVals= None, peakHeights= None, peakWidth=None):
     ## 0 -- baesline; 1 -- intensity A; 2 -- width gamma; 3 -- offset x0
     p_init= np.zeros(3*len(freqVals)+1)
-    gamma = 0.025
+    if peakWidth is None:
+        gamma = 0.025
+    else:
+        gamma = peakWidth
     p_init[0]= 1
     p_init[1::3]= np.pi*gamma/2*(np.array(peakHeights, dtype= float)-1)
     p_init[2::3]= gamma

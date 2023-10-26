@@ -44,6 +44,13 @@ class WFimage:
         self.isNpeak = False
         self.binned=False
         self.resumeX = 0
+        self.FitCheck = 0
+        ## -2 means cannot fit error
+        ## -1 means  bad fit occurs -- either positive amp or really broad (> 10x)
+        ## 0 means default
+        ## 1 means good fit but has not been corrected
+        ## 2 means good fit and has been auto corrected
+        ## 3 means good fit and has been manually corrected
 
     def binning(self, binsize = 1):
         if binsize == 1:
@@ -325,12 +332,19 @@ class WFimage:
                 try:
                     pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=max_repeat)
                 except ValueError:
+                    self.FitCheck = -2
                     raise ValueError("The singleESRfit fails.. pOpt set to be none")
                 # print(pOpt)
                 self.pOptPrint=pOpt
                 if pOpt is not None:
                     residuals = yVals - mf.lor_fit(self.fVals, *pOpt)
                     chiSq = np.sum((residuals / mf.lor_fit(self.fVals, *pOpt)) ** 2)
+                    cVals= pOpt[1::3]
+                    widthcompare = [a/b for a,b in zip(pOpt[2::3], initParas[2::3])]
+                    if len([*filter(lambda x: x > 0, cVals)]) > 0 or len([*filter(lambda x: x > 10, cVals)]) > 0:
+                        self.FitCheck = -1
+                    else:
+                        self.FitCheck = 1
                 else:
                     chiSq = 1
                 return pOpt, pCov, chiSq
@@ -344,6 +358,7 @@ class WFimage:
             self.optList = {}
             self.covList = {}
             self.sqList = {}
+            self.ckList = {}
         self.multix = xlist
         self.multiy = ylist
         guessFreqs = initGuess
@@ -382,6 +397,7 @@ class WFimage:
                 self.optList[(x, y)] = pOpt
                 self.covList[(x, y)] = pCov
                 self.sqList[(x, y)] = chiSq
+                self.ckList[(x, y)] = self.FitCheck
             print("{}-th row has completed".format(x))
 
         self.isMultfit = True
@@ -759,7 +775,7 @@ class multiWFImage:
     def __init__(self, folderpath):
         # self.temp=temp
         self.folderPath = folderpath
-        filenamearr=os.listdir(self.folderPath)
+        filenamearr = [f for f in os.listdir(self.folderPath) if os.path.isfile(self.folderPath + f)]
         self.filenamearr=filenamearr.sort
         ##print(filenamearr)
         self.WFList=[]
@@ -828,21 +844,21 @@ class multiWFImage:
             self.ROIfitsaved = True
 
     def loadFitResult(self, picklepath = None):
-        if self.isROIfit:
-            for i in range(self.Nfile):
-                filename = self.fileDir[i].split('.')[0] + '_fit.pkl'
-                if picklepath is None:
-                    picklepath = self.folderPath + 'pickle/'
-                    if not os.path.exists(picklepath):
-                        os.makedirs(picklepath)
-                with open(picklepath + filename, 'rb') as f:
-                    tmpWF = self.WFList[i]
-                    [tmpWF.optList, tmpWF.sqList, self.imgShift[i]] = pickle.load(f)
-                    print("{} file has been loaded!".format(i))
-                    if not self.isAlign:
-                        tmpWF.shiftDat(dx = -self.imgShift[i][0], dy = -self.imgShift[i][1])
+        for i in range(self.Nfile):
+            filename = self.fileDir[i].split('.')[0] + '_fit.pkl'
+            if picklepath is None:
+                picklepath = self.folderPath + 'pickle/'
+                if not os.path.exists(picklepath):
+                    os.makedirs(picklepath)
+            with open(picklepath + filename, 'rb') as f:
+                tmpWF = self.WFList[i]
+                [tmpWF.optList, tmpWF.sqList, self.imgShift[i]] = pickle.load(f)
+                tmpWF.isMultfit = True
+                print("{} file has been loaded!".format(i))
+                if not self.isAlign:
+                    tmpWF.shiftDat(dx = -self.imgShift[i][0], dy = -self.imgShift[i][1])
 
-            self.ROIfitloaded = True
+        self.ROIfitloaded = True
 
 
 
@@ -1036,7 +1052,7 @@ class multiWFImage:
             print("This function can only operate after assgining a roi!!")
 
     def generateroiDEmap(self):
-        if self.isROIfit:
+        if self.isROIfit or self.ROIfitloaded:
             self.roiDmap = np.zeros((self.X, self.Y, self.Nfile))
             self.roiEmap = np.zeros((self.X, self.Y, self.Nfile))
 

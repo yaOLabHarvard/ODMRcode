@@ -6,8 +6,8 @@ import pickle
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 # rtfolderpath='C:/Users/esthe/OneDrive/Desktop/VSCode/Plotting/Data/WF/RT CeH9 Data/'
-# homefolderpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/data/'
-labtfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_T/'
+homefolderpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/data/'
+# labtfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_T/'
 # labbfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
 # figpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/picture/'
 # picklepath='D:/work/py/attodry_lightfield/ODMRcode/newCode/pickle/'
@@ -17,8 +17,8 @@ fileName = 'zfc-150K-2A'
 
 #%%
 ## load multiple files
-MFWF=wf.multiWFImage(labtfolderpath)
-MFWF.setFileParameters(parameters=[150,160,170,180,190,200,210,220,230,240,250,270,20])
+MFWF=wf.multiWFImage(homefolderpath)
+MFWF.setFileParameters(parameters=[20,150,160,170,180,190,200,210,220,230,240,250,270])
 # MFWF.test()
 #%%
 ## pickle save and load
@@ -46,14 +46,19 @@ MFWF.plotroiDEmap(withroi=True)
 
 # %%
 # This block tests manual correction
-testWF = MFWF.WFList[0]
+testWF = MFWF.WFList[5]
+testWF.covList = {}
 currentE = 1e-7
-MFWF.roi(xlow=81, ylow=82, xrange=10, yrange=1, plot=True)
+MFWF.roi(xlow=105, ylow=82, xrange=10, yrange=1, plot=True)
+#MFWF.roi(xlow=55, ylow=82, xrange=20, yrange=1, plot=True)
+for x in MFWF.xr:
+    for y in MFWF.yr:
+        testWF.covList[(x,y)] = 0
 testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = currentE)
 testWF.multiESRfitManualCorrection(isResume = False)
-2# %%
+# %%
 # This block tests auto correction
-guessfound = [2.78,2.9,2.98,3.05]
+guessfound = [2.88,2.92,2.95,3]
 testWF.multiESRfitAutoCorrection(guessfound, forced = False, isResume = True)
 #%%
 testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = currentE)
@@ -160,4 +165,14 @@ MFWF.lineroiDEvsParas()
 # MFWF.roiDEvsParas()
 # %%
 MFWF.dumpFitResult()
+# %%
+MFWF.loadFitResult()
+
+# %%
+for i in range(MFWF.Nfile):
+    dataE = MFWF.roiEmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
+    dataD = MFWF.roiDmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
+    filename = MFWF.fileDir[i].split('.')[0] + '_fit.txt'
+    output = np.array([dataE,dataD]).transpose()
+    np.savetxt(homefolderpath+filename, output)
 # %%

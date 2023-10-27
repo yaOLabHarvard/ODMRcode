@@ -338,10 +338,10 @@ class WFimage:
                 self.pOptPrint=pOpt
                 if pOpt is not None:
                     residuals = yVals - mf.lor_fit(self.fVals, *pOpt)
-                    chiSq = np.sum((residuals / mf.lor_fit(self.fVals, *pOpt)) ** 2)
+                    chiSq = np.sum((residuals**2 / mf.lor_fit(self.fVals, *pOpt)))
                     cVals= pOpt[1::3]
                     widthcompare = [a/b for a,b in zip(pOpt[2::3], initParas[2::3])]
-                    if len([*filter(lambda x: x > 0, cVals)]) > 0 or len([*filter(lambda x: x > 10, cVals)]) > 0:
+                    if len([*filter(lambda x: x > 0, cVals)]) > 0 or len([*filter(lambda x: x > 10, widthcompare)]) > 0:
                         self.FitCheck = -1
                     else:
                         self.FitCheck = 1
@@ -421,7 +421,7 @@ class WFimage:
                 for y in yrange:
                     if self.sqList[(x, y)] is None:
                         self.sqList[(x, y)] = 1
-                    if self.sqList[(x, y)] > epschi and min(self.dat[x, y]) < 1 - epsy:
+                    if self.sqList[(x, y)] > epschi and min(self.dat[x, y]) < 1 - epsy and self.ckList[(x, y)] < 3:
                         self.errorIndex.append([x,y])
             
             self.isErrordetect = True
@@ -444,12 +444,14 @@ class WFimage:
                             self.optList[(x, y)] = fitList[0]
                             self.covList[(x, y)] = fitList[1]
                             self.sqList[(x, y)] = fitList[2]
+                            self.ckList[(x, y)] = 3
                             isRetry = 0
                         elif asw1 == 0:
                             asw2 = int(input("Want to retry?(1/0)"))
                             if asw2 == 0:
                                 isRetry = 0
                         else:
+                            self.ckList[(x, y)] = 3
                             break
 
                 except(ValueError, RuntimeError, IndexError) as e:
@@ -484,7 +486,8 @@ class WFimage:
                         self.optList[(x, y)] = pOpt
                         self.covList[(x, y)] = pCov
                         self.sqList[(x, y)] = chiSq
-                        print("{} {} has been corrected..".format(x, y))
+                        self.ckList[(x, y)] = 2
+                        print("{} {} has been auto corrected..".format(x, y))
 
                 except(ValueError, RuntimeError, IndexError) as e:
                     print("{} {} is not working..".format(x, y))
@@ -918,9 +921,15 @@ class multiWFImage:
         plt.show()
         plt.close()
 
-    def imageStack(self, Nslice = 3, plot = False):
-        for i in range(self.Nfile):
-            tmpDat = self.WFList[i].dat.copy()
+    def imageStack(self, Nslice = 3, plot = False, imageList = None):
+        if imageList is None:
+            fileLen = self.Nfile
+            imageList = np.arange(self.Nfile)
+        else:
+            fileLen = len(imageList)
+
+        for i in range(fileLen):
+            tmpDat = self.WFList[imageList[i]].dat.copy()
             if i == 0:
                 stackImage = tmpDat[:,:, Nslice]
             else:
@@ -1035,6 +1044,48 @@ class multiWFImage:
             self.isAlign = True
         else:
             print("This function can only operate after assgining a roi!!")
+
+    
+    def manualAlign(self, nslice = 3, referN = 0):
+        beforeAlignImg = self.imageStack(Nslice = nslice)
+        shiftXY = []
+        for i in range(self.Nfile):
+            if i != referN:
+                print(self.fileDir[i] + " file is processing...")
+                imageList = [referN, i]
+                tmpWF = self.WFList[i]
+            isretry = 1
+            while isretry:
+                currentImg = self.imageStack(Nslice = nslice, imageList = imageList, plot=True)
+                [dx, dy] = np.fromstring(input('Enter the x, y shift in pixels (for example: 0, 1)(the imshow has the x and y axis swaped):'),sep=',')
+                tmpWF.shiftDat(dx = -dx, dy = -dy)
+                asw = int(input("Accept?(0/1)"))
+                if asw:
+                    isretry = 0
+                    shiftXY.append([dx, dy])
+                else:
+                    tmpWF.shiftDat(dx = dx, dy = dy)
+        
+        self.imgShift = np.array(shiftXY)
+        aftAlignImg = self.imageStack(Nslice = nslice)
+        
+        fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,6))
+        bef = ax[0].imshow(beforeAlignImg)
+        divider = make_axes_locatable(ax[0])
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        plt.colorbar(bef, cax=cax)
+
+        aft = ax[1].imshow(aftAlignImg)
+        divider = make_axes_locatable(ax[1])
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        plt.colorbar(aft, cax=cax)
+
+        plt.show()
+        plt.close()
+        self.isAlign = True
+
+
+
 
     def roiMultiESRfit(self,max_peak = 4, initGuess = None):
         if self.isROI:

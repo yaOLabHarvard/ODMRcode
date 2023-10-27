@@ -94,8 +94,8 @@ testWF.norm()
 # px=110
 # py=90
 # testWF.myFavoriatePlot(px, py, maxPeak = 4)
-linecut = [[20, 82],[120, 82]]
-testWF.waterfallPlot(lineCut = linecut, stepSize = 4,  spacing = 0.01, plotTrace = True,plotFit=True, plot = False)
+linecut = [[90, 82],[100, 82]]
+testWF.waterfallPlot(lineCut = linecut, stepSize = 1,  spacing = 0.005, plotTrace = True,plotFit=True, plot = False)
 # %%
 ## create linecuts for single image
 linecut = [[70, 10],[70, 140]]

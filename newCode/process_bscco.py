@@ -2,13 +2,12 @@
 import WF_mat_data_class as wf
 import WF_data_processing as pr
 from matplotlib import pyplot as plt, cm
-import pickle
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 # rtfolderpath='C:/Users/esthe/OneDrive/Desktop/VSCode/Plotting/Data/WF/RT CeH9 Data/'
-homefolderpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/data/'
+# homefolderpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/data/'
 # labtfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_T/'
-# labbfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
+labbfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
 # figpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/picture/'
 # picklepath='D:/work/py/attodry_lightfield/ODMRcode/newCode/pickle/'
 testpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/'
@@ -17,16 +16,12 @@ fileName = 'zfc-150K-2A'
 
 #%%
 ## load multiple files
-MFWF=wf.multiWFImage(homefolderpath)
-MFWF.setFileParameters(parameters=[20,150,160,170,180,190,200,210,220,230,240,250,270])
-# MFWF.test()
+MFWF=wf.multiWFImage(labbfolderpath)
+MFWF.setFileParameters(parameters=[0,0.1,0.25,0.5,1,2,7,5,10])
+MFWF.test()
 #%%
-## pickle save and load
-# with open(picklepath + 'bscco_rt_only_0Aand0p5A.pkl', 'rb') as f:
-#     MFWF = pickle.load(f)
-# # %%
-# with open(picklepath + 'bscco_rt_only_0Aand0p5A.pkl', 'wb') as f:
-#     pickle.dump(MFWF, f)
+## do manual image correlation
+MFWF.manualAlign(nslice = 3, referN = 0)
 
 # %%
 ## pick a roi and do image correlations
@@ -46,28 +41,32 @@ MFWF.plotroiDEmap(withroi=True)
 
 # %%
 # This block tests manual correction
-testWF = MFWF.WFList[5]
-testWF.covList = {}
+testWF = MFWF.WFList[3]
+# testWF.covList = {}
 currentE = 1e-7
-MFWF.roi(xlow=105, ylow=82, xrange=10, yrange=1, plot=True)
+MFWF.roi(xlow=20, ylow=82, xrange=100, yrange=1, plot=True)
 #MFWF.roi(xlow=55, ylow=82, xrange=20, yrange=1, plot=True)
-for x in MFWF.xr:
-    for y in MFWF.yr:
-        testWF.covList[(x,y)] = 0
+# for x in MFWF.xr:
+#     for y in MFWF.yr:
+#         testWF.covList[(x,y)] = 0
 testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = currentE)
 testWF.multiESRfitManualCorrection(isResume = False)
 # %%
 # This block tests auto correction
-guessfound = [2.88,2.92,2.95,3]
-testWF.multiESRfitAutoCorrection(guessfound, forced = False, isResume = True)
+guessfound = [2.87,2.92,2.94]
+testWF.multiESRfitAutoCorrection(guessfound, forced = False, isResume = False)
 #%%
 testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = currentE)
 testWF.multiESRfitManualCorrection(isResume = True)
 #%%
 ## this block will test the single WFimage files
 # testWF = wf.WFimage(ltfolderpath+fileName)
-testWF = MFWF.WFList[0]
+testWF = MFWF.WFList[3]
 testWF.norm()
+xr = np.arange(20,120)
+ycut = 110
+yr= np.arange(ycut, ycut+1)
+testWF.multiESRfit(xr, yr)
 
 # %%
 # %%
@@ -94,8 +93,9 @@ testWF.norm()
 # px=110
 # py=90
 # testWF.myFavoriatePlot(px, py, maxPeak = 4)
-linecut = [[90, 82],[100, 82]]
-testWF.waterfallPlot(lineCut = linecut, stepSize = 1,  spacing = 0.005, plotTrace = True,plotFit=True, plot = False)
+ycut = 110
+linecut = [[20, ycut],[120, ycut]]
+testWF.waterfallPlot(lineCut = linecut, stepSize = 4,  spacing = 0.005, plotTrace = True,plotFit=True, plot = False)
 # %%
 ## create linecuts for single image
 linecut = [[70, 10],[70, 140]]
@@ -175,4 +175,8 @@ for i in range(MFWF.Nfile):
     filename = MFWF.fileDir[i].split('.')[0] + '_fit.txt'
     output = np.array([dataE,dataD]).transpose()
     np.savetxt(homefolderpath+filename, output)
+# %%
+MFWF.imgShift = np.insert(MFWF.imgShift, 0, 0, axis = 0)
+
+
 # %%

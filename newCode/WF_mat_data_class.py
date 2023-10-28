@@ -17,10 +17,6 @@ import pickle
 # import scipy as sp
 import random as rd
 import os
-# path = "F:/NMR/NMR/py_projects/WF/ODMRcode/WF/raw_data/"
-# filename= '100xobj_Bz0p3A.mat'
-# path = "C:/Users/esthe/OneDrive/Desktop/VSCode/Plotting/"
-# filename = '100xobj_Bz3A.mat'
 gamma=2.8025e-3 #GHz/G
 
 ## fitting parameters
@@ -1054,17 +1050,20 @@ class multiWFImage:
                 print(self.fileDir[i] + " file is processing...")
                 imageList = [referN, i]
                 tmpWF = self.WFList[i]
-            isretry = 1
-            while isretry:
-                currentImg = self.imageStack(Nslice = nslice, imageList = imageList, plot=True)
-                [dx, dy] = np.fromstring(input('Enter the x, y shift in pixels (for example: 0, 1)(the imshow has the x and y axis swaped):'),sep=',')
-                tmpWF.shiftDat(dx = -dx, dy = -dy)
-                asw = int(input("Accept?(0/1)"))
-                if asw:
-                    isretry = 0
-                    shiftXY.append([dx, dy])
-                else:
-                    tmpWF.shiftDat(dx = dx, dy = dy)
+                isretry = 1
+                while isretry:
+                    currentImg = self.imageStack(Nslice = nslice, imageList = imageList, plot=True)
+                    [dx, dy] = np.fromstring(input('Enter the x, y shift in pixels (for example: 0, 1)(the imshow has the x and y axis swaped):'),sep=',')
+                    tmpWF.shiftDat(dx = -dx, dy = -dy)
+                    currentImg = self.imageStack(Nslice = nslice, imageList = imageList, plot=True)
+                    asw = int(input("Accept?(0/1)"))
+                    if asw:
+                        isretry = 0
+                        shiftXY.append([dx, dy])
+                    else:
+                        tmpWF.shiftDat(dx = dx, dy = dy)
+            else:
+                shiftXY.append([0, 0])
         
         self.imgShift = np.array(shiftXY)
         aftAlignImg = self.imageStack(Nslice = nslice)

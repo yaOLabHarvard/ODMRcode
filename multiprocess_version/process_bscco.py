@@ -1,6 +1,6 @@
 # %%
 import WF_mat_data_class as wf
-import WF_data_processing as pr
+import WF_mp_data_class as wfmp
 from matplotlib import pyplot as plt, cm
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -16,7 +16,7 @@ fileName = 'zfc-150K-2A'
 
 #%%
 ## load multiple files
-MFWF=wf.multiWFImage(labbfolderpath)
+MFWF=wfmp.multiWFImage(labbfolderpath)
 MFWF.setFileParameters(parameters=[0,0.1,0.25,0.5,1,2,7,5,10])
 MFWF.test()
 #%%

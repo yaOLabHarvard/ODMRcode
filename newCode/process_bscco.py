@@ -17,8 +17,14 @@ fileName = 'zfc-150K-2A'
 #%%
 ## load multiple files
 MFWF=wf.multiWFImage(labbfolderpath)
-MFWF.setFileParameters(parameters=[0,0.1,0.25,0.5,1,2,7,5,10])
-MFWF.test()
+MFWF.setFileParameters(parameters=[0,0.1,0.25,0.5,1,2,7,5,-1])
+##MFWF.test()
+
+# %%
+MFWF.dumpFitResult()
+# %%
+MFWF.loadFitResult(refreshChecks = True)
+
 #%%
 ## do manual image correlation
 MFWF.manualAlign(nslice = 3, referN = 0)
@@ -41,22 +47,20 @@ MFWF.plotroiDEmap(withroi=True)
 
 # %%
 # This block tests manual correction
-testWF = MFWF.WFList[3]
-# testWF.covList = {}
-currentE = 1e-7
-MFWF.roi(xlow=20, ylow=82, xrange=100, yrange=1, plot=True)
+testWF = MFWF.WFList[5]
+currentE = 0
+MFWF.roi(xlow=28, ylow=82, xrange=92, yrange=1, plot=True)
 #MFWF.roi(xlow=55, ylow=82, xrange=20, yrange=1, plot=True)
-# for x in MFWF.xr:
-#     for y in MFWF.yr:
-#         testWF.covList[(x,y)] = 0
 testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = currentE)
 testWF.multiESRfitManualCorrection(isResume = False)
 # %%
+## 2.728,2.773,2.876,2.901,2.991,3.016,3.07,3.076
+## 2.875,2.91,2.94,2.96, 2.97
 # This block tests auto correction
-guessfound = [2.87,2.92,2.94]
-testWF.multiESRfitAutoCorrection(guessfound, forced = False, isResume = False)
+# guessfound = [2.89,2.91,2.943,2.95]
+# testWF.multiESRfitAutoCorrection(guessfound, forced = False, isResume = True)
 #%%
-testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = currentE)
+##testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = currentE)
 testWF.multiESRfitManualCorrection(isResume = True)
 #%%
 ## this block will test the single WFimage files
@@ -90,19 +94,22 @@ testWF.multiESRfit(xr, yr)
 # plt.close()
 # %%
 ## test for single pt esr
-# px=110
-# py=90
+testWF = MFWF.WFList[5]
+# px=15
+# py=82
 # testWF.myFavoriatePlot(px, py, maxPeak = 4)
-ycut = 110
-linecut = [[20, ycut],[120, ycut]]
-testWF.waterfallPlot(lineCut = linecut, stepSize = 4,  spacing = 0.005, plotTrace = True,plotFit=True, plot = False)
+ycut = 82
+linecut = [[10, ycut],[120, ycut]]
+##testWF.waterfallPlot(lineCut = linecut, stepSize = 4,  spacing = 0.005, plotTrace = True,plotFit=True)
+testWF.waterfallMap(lineCut = linecut, stepSize =1, plotTrace = False, localmin = True)
+# %%
 # %%
 ## create linecuts for single image
 linecut = [[70, 10],[70, 140]]
-testWF.waterfallPlot(lineCut = linecut, stepSize = 5,  spacing = 0.01, plotTrace = True,plotFit=True, plot = False)
+testWF.waterfallPlot(lineCut = linecut, stepSize = 5,  spacing = 0.01, plotTrace = True,plotFit=True)
 plt.savefig(figpath+"vcut"+str(currentB)+"G.png")
 linecut = [[10, 80],[140, 80]]
-testWF.waterfallPlot(lineCut = linecut, stepSize = 5,  spacing = 0.01, plotTrace = True,plotFit=True, plot = False)
+testWF.waterfallPlot(lineCut = linecut, stepSize = 5,  spacing = 0.01, plotTrace = True,plotFit=True)
 plt.savefig(figpath+"hcut"+str(currentB)+"G.png")
 # %%
 ## B/H plot for single image
@@ -163,20 +170,56 @@ MFWF.lineroiDEvsParas()
 # ## square
 # MFWF.roi(xlow=70, ylow=70, xrange=5, yrange=5, plot=True)
 # MFWF.roiDEvsParas()
-# %%
-MFWF.dumpFitResult()
-# %%
-MFWF.loadFitResult()
 
-# %%
-for i in range(MFWF.Nfile):
-    dataE = MFWF.roiEmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
-    dataD = MFWF.roiDmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
-    filename = MFWF.fileDir[i].split('.')[0] + '_fit.txt'
-    output = np.array([dataE,dataD]).transpose()
-    np.savetxt(homefolderpath+filename, output)
-# %%
-MFWF.imgShift = np.insert(MFWF.imgShift, 0, 0, axis = 0)
+# # %%
+# for i in range(MFWF.Nfile):
+#     dataE = MFWF.roiEmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
+#     dataD = MFWF.roiDmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
+#     filename = MFWF.fileDir[i].split('.')[0] + '_fit.txt'
+#     output = np.array([dataE,dataD]).transpose()
+#     np.savetxt(homefolderpath+filename, output)
 
 
+# # %%
+# import os
+# import pickle
+# picklepath = None
+# for i in range(MFWF.Nfile):
+#         tmpd =  {}
+#         for x in MFWF.xr:
+#             for y in MFWF.yr:
+#                 tmpd[(x,y)] = 0
+#         tmp = [MFWF.WFList[i].optList, MFWF.WFList[i].sqList, tmpd, MFWF.imgShift[i]]
+#         filename = MFWF.fileDir[i].split('.')[0] + '_fit.pkl'
+#         if picklepath is None:
+#             picklepath = MFWF.folderPath + 'pickle/'
+#             if not os.path.exists(picklepath):
+#                 os.makedirs(picklepath)
+#         with open(picklepath + filename, 'wb') as f:
+#             pickle.dump(tmp, f)
+#             print("{} file has been dumped!".format(i))
+
+# %%
+haha = np.array([1,2,3,4,5,6,7,8,9,10])
+nums = np.array([1])
+dlList =np.zeros(len(nums)*3, dtype = int)
+print(nums)
+for i in range(len(nums)):
+    print(nums)
+    flag = int(3*nums[i]+1)
+    dlList[i:i+3]=[flag, flag+1, flag+2]
+haha = np.delete(haha, dlList)
+print(haha)
+# %%
+aa= np.array([1,2,3,4,5,6,7,8,9,10])
+nums = np.fromstring(input("input the peak number you wish to delete (for example: 0, 1, 2):"), sep=',')
+nums = np.array(nums)
+dlList =np.zeros(len(nums)*3, dtype = int)
+for i in range(len(nums)):
+
+    flag = 3*nums[i]+1
+    dlList[3*i:3*i+3]=[flag, flag+1, flag+2]
+    print(dlList)
+
+aa = np.delete(aa, dlList)
 # %%

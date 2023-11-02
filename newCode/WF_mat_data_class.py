@@ -188,7 +188,7 @@ class WFimage:
                 flag += 1
             return theLine, nnList
 
-    def waterfallPlot(self, lineCut = [[0, 0], [1, 1]], stepSize =1,  spacing = 0.01, plotTrace = False, plotFit = False, plot = False):
+    def waterfallPlot(self, lineCut = [[0, 0], [1, 1]], stepSize =1,  spacing = 0.01, plotTrace = False, plotFit = False):
         
             theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
             if plotTrace:
@@ -222,10 +222,66 @@ class WFimage:
 
             ax.set_ylim([1, offset+1+spacing])
 
-            if plot:
+            plt.show()
+            plt.close()
+
+    def waterfallMap(self, lineCut = [[0, 0], [1, 1]], stepSize =1, plotTrace = False, localmin = False):
+        
+            theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
+            if plotTrace:
+                fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
+                IMGplot = ax.imshow(self.dat[:,:,3].copy())
+                ## switch x and y for imshow
+                ##print(theLine)
+                ax.plot(theLine[:, 1], theLine[:, 0], '.', color='red', markersize=15)
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                plt.colorbar(IMGplot, cax=cax)
+                plt.show()
+                plt.close()
+            ## generate plots
+            theimage = np.zeros((len(nnList), self.npoints))
+            for i in range(len(nnList)):
+                theimage[i] = self.pointESR(theLine[i][0], theLine[i][1])
+            fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (12,6))
+            themap = ax.imshow(theimage)
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            plt.colorbar(themap, cax=cax)
+            plt.show()
+            plt.close()
+
+            if localmin:
+                initFreq = np.fromstring(input("input the init pos (for example: 10, 20, 30):"), sep=',')
+                span = int(input("input the search span you wish:"))
+                minArray = np.zeros((len(nnList), len(initFreq)))
+                curentFreq = initFreq
+                for i in range(len(nnList)):
+                    array = self.pointESR(theLine[i][0], theLine[i][1])
+                    for j in range(len(curentFreq)):
+                        try:
+                            print(i)
+                            print(j)
+                            lowf = int(curentFreq[j]-span)
+                            highf = int(curentFreq[j]+span)
+                            findrange = array[lowf:highf]
+                            ##print(findrange)
+                            theMin = np.argmin(findrange)
+                            minArray[i][j] = theMin + lowf
+                            curentFreq[j] = theMin + lowf
+                        except IndexError:
+                            print("the range is twoo big!")
+                            return
+                minArray = minArray.transpose()
+                ydata = np.arange(len(nnList))
+                plt.imshow(theimage)
+                for i in range(len(curentFreq)):
+                    plt.scatter(minArray[i], ydata)
+
                 plt.show()
                 plt.close()
 
+                
 
 
     def maskContourgen(self):
@@ -402,12 +458,12 @@ class WFimage:
         print("current point: x {}; y {}".format(x, y))
         self.myFavoriatePlot(x, y, fitParas=[self.optList[(x, y)], self.covList[(x, y)], self.sqList[(x, y)]])
         if int(input("Looks good?(1/0)")):
-            return -1, 0
+            return 0, 0
         else:
             guessFreq = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
             pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = len(guessFreq), initGuess=guessFreq)
             self.myFavoriatePlot(x, y, fitParas=[pOpt, pCov, chiSq])
-            asw = int(input("Accept?(1/0)"))
+            asw = int(input("Accept?(2/1/0)"))
         return asw, [pOpt, pCov, chiSq]
     
     def fitErrordetection(self, xrange, yrange, epschi = 5e-5, epsy = epslion_y):
@@ -424,6 +480,32 @@ class WFimage:
         else:
             print("Please do multiesr first!")
 
+    def deleteFitpeaks(self, x, y):
+        fitList = self.optList[(x, y)]
+        if self.optList[(x, y)] is not None:
+            peakNumber = np.arange(int((len(fitList) - 1)/3))
+            for i in peakNumber:
+
+                flag = 3*i+1
+                print("peak number {}; amp {:.3e}; width {:.3e}; freq {:.3e};".format(i, fitList[flag], fitList[flag+1], fitList[flag+2]))
+
+            nums = np.fromstring(input("input the peak number you wish to delete (for example: 0, 1, 2):"), sep=',')
+            nums = np.array(nums)
+            try:
+                dlList =np.zeros(len(nums)*3, dtype = int)
+                for i in range(len(nums)):
+
+                    flag = 3*nums[i]+1
+                    dlList[3*i:3*i+3]=[flag, flag+1, flag+2]
+
+                self.optList[(x, y)] = np.delete(self.optList[(x, y)], dlList)
+
+
+            except (ValueError, TypeError, IndexError) as e:
+                print("no deletion! exit")
+                return
+            
+
     def multiESRfitManualCorrection(self, isResume = False):
         if self.isErrordetect:
             if isResume:
@@ -436,19 +518,24 @@ class WFimage:
                     isRetry = 1
                     while isRetry:
                         asw1, fitList = self.plotAndCorrect(x, y)
-                        if asw1 > 0:
+                        if asw1 == 1:
                             self.optList[(x, y)] = fitList[0]
                             self.covList[(x, y)] = fitList[1]
                             self.sqList[(x, y)] = fitList[2]
                             self.ckList[(x, y)] = 3
-                            isRetry = 0
+                            asw2 = 0
+                        elif asw1 == 2:
+                            self.optList[(x, y)] = fitList[0]
+                            self.deleteFitpeaks(x, y)
+                            asw2, fitList = self.plotAndCorrect(x, y)
                         elif asw1 == 0:
-                            asw2 = int(input("Want to retry?(1/0)"))
-                            if asw2 == 0:
-                                isRetry = 0
-                        else:
-                            self.ckList[(x, y)] = 3
-                            break
+                            if fitList == 0:
+                                asw2 = 0
+                            else:
+                                asw2 = int(input("Want to retry?(1/0)"))
+
+                        if asw2 == 0:
+                            isRetry = 0
 
                 except(ValueError, RuntimeError, IndexError) as e:
                     print(e)
@@ -828,9 +915,9 @@ class multiWFImage:
         self.isPara = True
 
     def dumpFitResult(self, picklepath = None):
-        if self.isROIfit:
+        if self.isROIfit or self.ROIfitloaded:
             for i in range(self.Nfile):
-                tmp = [self.WFList[i].optList, self.WFList[i].sqList, self.imgShift[i]]
+                tmp = [self.WFList[i].optList, self.WFList[i].sqList, self.WFList[i].ckList, self.imgShift[i]]
                 filename = self.fileDir[i].split('.')[0] + '_fit.pkl'
                 if picklepath is None:
                     picklepath = self.folderPath + 'pickle/'
@@ -842,7 +929,7 @@ class multiWFImage:
 
             self.ROIfitsaved = True
 
-    def loadFitResult(self, picklepath = None):
+    def loadFitResult(self, picklepath = None, refreshChecks = False):
         for i in range(self.Nfile):
             filename = self.fileDir[i].split('.')[0] + '_fit.pkl'
             if picklepath is None:
@@ -851,7 +938,12 @@ class multiWFImage:
                     os.makedirs(picklepath)
             with open(picklepath + filename, 'rb') as f:
                 tmpWF = self.WFList[i]
-                [tmpWF.optList, tmpWF.sqList, self.imgShift[i]] = pickle.load(f)
+                [tmpWF.optList, tmpWF.sqList, tmpWF.ckList, self.imgShift[i]] = pickle.load(f)
+                tmpWF.covList = {}
+                for k in tmpWF.ckList.keys():
+                    tmpWF.covList[k] = 0
+                    if refreshChecks:
+                        tmpWF.ckList[k] = 0
                 tmpWF.isMultfit = True
                 print("{} file has been loaded!".format(i))
                 if not self.isAlign:

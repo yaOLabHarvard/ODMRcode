@@ -11,6 +11,7 @@ labbfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
 # figpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/picture/'
 # picklepath='D:/work/py/attodry_lightfield/ODMRcode/newCode/pickle/'
 testpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/'
+txtpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/esr_igor/'
 fileName = 'zfc-150K-2A'
 
 
@@ -94,14 +95,16 @@ testWF.multiESRfit(xr, yr)
 # plt.close()
 # %%
 ## test for single pt esr
-testWF = MFWF.WFList[5]
+testWF = MFWF.WFList[8]
 # px=15
 # py=82
 # testWF.myFavoriatePlot(px, py, maxPeak = 4)
+##75,125,160,200
+## 0.    0.1   0.25  0.5   1.    2.    7.    5.   -1. 
 ycut = 82
-linecut = [[10, ycut],[120, ycut]]
+linecut = [[10, ycut],[130, ycut]]
 ##testWF.waterfallPlot(lineCut = linecut, stepSize = 4,  spacing = 0.005, plotTrace = True,plotFit=True)
-testWF.waterfallMap(lineCut = linecut, stepSize =1, plotTrace = False, localmin = True)
+testWF.waterfallMap(lineCut = linecut, stepSize =1, plotTrace = False, localmin = False, flipped = False)
 # %%
 # %%
 ## create linecuts for single image
@@ -222,4 +225,20 @@ for i in range(len(nums)):
     print(dlList)
 
 aa = np.delete(aa, dlList)
+# %%
+# import scipy
+# testdata = MFWF.WFList[5].pointESR(120, 30)
+# print(scipy.signal.argrelmin(testdata, order = 15))
+# plt.plot(testdata)
+# plt.show()
+# %%
+nlist= ['0', '0p1', '0p25','0p5','1','2','7','5','0qu']
+for i in range(9):
+    esry = MFWF.WFList[i].pointESR(100, 82)
+    esrf = MFWF.WFList[i].fVals
+    plt.plot(esrf, esry)
+    plt.show()
+    fname = 'x100y82_'+nlist[i]+ '.txt'
+    data = np.array([esry, esrf]).transpose()
+    np.savetxt(txtpath+fname, data)
 # %%

@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt, cm
 from matplotlib.patches import Rectangle
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.integrate import quad, simpson
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, argrelmin
 from scipy.signal import correlate2d
 import scipy.optimize as opt
 from scipy.optimize import fsolve, root
@@ -225,9 +225,11 @@ class WFimage:
             plt.show()
             plt.close()
 
-    def waterfallMap(self, lineCut = [[0, 0], [1, 1]], stepSize =1, plotTrace = False, localmin = False):
+    def waterfallMap(self, lineCut = [[0, 0], [1, 1]], stepSize =1, plotTrace = False, localmin = False, flipped = False):
         
             theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
+            if flipped:
+                theLine = theLine[::-1]
             if plotTrace:
                 fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
                 IMGplot = ax.imshow(self.dat[:,:,3].copy())
@@ -244,7 +246,7 @@ class WFimage:
             for i in range(len(nnList)):
                 theimage[i] = self.pointESR(theLine[i][0], theLine[i][1])
             fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (12,6))
-            themap = ax.imshow(theimage)
+            themap = ax.imshow(theimage, extent=[self.fVals[0], self.fVals[-1], 0, len(nnList)], aspect='auto')
             divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(themap, cax=cax)
@@ -254,24 +256,41 @@ class WFimage:
             if localmin:
                 initFreq = np.fromstring(input("input the init pos (for example: 10, 20, 30):"), sep=',')
                 span = int(input("input the search span you wish:"))
-                minArray = np.zeros((len(nnList), len(initFreq)))
+                Nmin = len(initFreq)
+                minArray = np.zeros((len(nnList), Nmin))
                 curentFreq = initFreq
                 for i in range(len(nnList)):
                     array = self.pointESR(theLine[i][0], theLine[i][1])
+                    tmpMin = []
                     for j in range(len(curentFreq)):
                         try:
-                            print(i)
-                            print(j)
                             lowf = int(curentFreq[j]-span)
                             highf = int(curentFreq[j]+span)
                             findrange = array[lowf:highf]
                             ##print(findrange)
-                            theMin = np.argmin(findrange)
-                            minArray[i][j] = theMin + lowf
-                            curentFreq[j] = theMin + lowf
+                            theMin = np.array(argrelmin(findrange, order = int(span/4)))
+                            theMin = theMin+ lowf
+                            tmpMin.append(theMin)
                         except IndexError:
                             print("the range is twoo big!")
                             return
+                    tmpMin = np.hstack(tmpMin)
+                    tmpMin = np.sort(np.unique(tmpMin))
+                    minValsorder = array[tmpMin].argsort()
+                    finalMin = tmpMin[minValsorder]
+                    if len(finalMin) >= Nmin:
+                        curentFreq = finalMin[:Nmin]
+                        minArray[i] = finalMin[:Nmin]
+                    else:
+                        for k in range(Nmin):
+                            if k < len(finalMin):
+                                minArray[i][k] = finalMin[k]
+                            else:
+                                minArray[i][k] = finalMin[-1]
+
+
+
+                        
                 minArray = minArray.transpose()
                 ydata = np.arange(len(nnList))
                 plt.imshow(theimage)

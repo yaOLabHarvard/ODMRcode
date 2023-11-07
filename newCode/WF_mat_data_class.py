@@ -1,16 +1,17 @@
 # In[1]:
-import WF_data_processing as dp
+##import WF_data_processing as dp
 import multipeak_fit as mf
 import numpy as np
+import itertools
+import random
 # import matplotlib.pyplot as plt, cm
 from matplotlib import pyplot as plt, cm
 from matplotlib.patches import Rectangle
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.integrate import quad, simpson
-from scipy.signal import find_peaks, argrelmin
-from scipy.signal import correlate2d
-import scipy.optimize as opt
-from scipy.optimize import fsolve, root
+from scipy.signal import find_peaks, argrelmin, correlate2d
+from scipy.optimize import curve_fit, fsolve, root
+from scipy.spatial import cKDTree
 import pickle
 
 ## important: only the pyplot.imshow will swap x and y axis as the output
@@ -35,9 +36,12 @@ class WFimage:
         self.dataMask = None
         self.isNorm = False
         self.isMultfit = False
+        self.isSeedfit = False
         self.isErrordetect = False
+        self.isManualFit = False
         self.isMask = False
         self.isNpeak = False
+        self.isSeeded = False
         self.binned=False
         self.resumeX = 0
         self.FitCheck = 0
@@ -114,25 +118,27 @@ class WFimage:
             self.norm()
         if not self.binned:
             self.binning()
-        fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,6))
+        fig = plt.figure(num = 1, clear = True, figsize= (15,6))
+        ax1 = fig.add_subplot(1, 2, 1)
         ## plot the image
         # IMGplot = ax[0].imshow(self.originalDat[:,:,3].copy())
-        IMGplot = ax[0].imshow(self.dat[:,:,3])
-        ax[0].add_patch(Rectangle((y - 2, x -2), 4, 4, fill=None, alpha = 1))
-        divider = make_axes_locatable(ax[0])
+        IMGplot = ax1.imshow(self.dat[:,:,3])
+        ax1.add_patch(Rectangle((y - 2, x -2), 4, 4, fill=None, alpha = 1))
+        divider = make_axes_locatable(ax1)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(IMGplot, cax=cax)
 
 
         ## plot single ESR
+        ax2 = fig.add_subplot(1, 2, 2)
         spESR = self.pointESR(x, y)
-        ax[1].plot(self.fVals, spESR, '-')
-        # ax[1].set_xlim()
-        # ax[1].set_ylim(0.996,1.002)
+        ax2.plot(self.fVals, spESR, '-')
+        # ax2.set_xlim()
+        # ax2.set_ylim(0.996,1.002)
         if withFit:
             if fitParas is None:
                 peaks = self.singleESRpeakfind(x, y, max_peak = maxPeak, method = 'pro')
-                ax[1].plot(self.fVals[peaks], spESR[peaks], 'x')
+                ax2.plot(self.fVals[peaks], spESR[peaks], 'x')
                 print("Peaks found by Autofind: "+str(self.fVals[peaks]))
                 print("Peak indices found by Autofind: "+ str(peaks))
 
@@ -144,7 +150,6 @@ class WFimage:
                     popt = None
             else:
                 [popt, pcov, chisq] = fitParas
-                print("peak parameters: {}".format(popt))
 
             if popt is not None:
                 npeak = int(np.floor(len(popt)/3))
@@ -154,12 +159,12 @@ class WFimage:
             else:
                 npeak = 0
 
-            for i in np.arange(npeak):
+            for i in range(npeak):
                 params = popt[1+3*i:4+3*i]
-                ax[1].plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params), '-')
+                print("peak number {}; amp {:.3e}; width {:.3e}; freq {:.3e};".format(i, popt[3*i+1], popt[3*i+2], popt[3*i+3]))
+                ax2.plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params), '-')
 
         plt.show()
-        plt.close()
 
     def lineCutGen(self, lineCut = [[0, 0], [1, 1]], stepSize =1):
         if self.isNorm:
@@ -192,7 +197,8 @@ class WFimage:
         
             theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
             if plotTrace:
-                fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
+                fig = plt.figure(num = 1, clear = True, figsize= (6,6))
+                ax = fig.add_subplot(1, 1, 1)
                 IMGplot = ax.imshow(self.dat[:,:,3].copy())
                 ## switch x and y for imshow
                 print(theLine)
@@ -201,9 +207,10 @@ class WFimage:
                 cax = divider.append_axes("right", size="5%", pad=0.05)
                 plt.colorbar(IMGplot, cax=cax)
                 plt.show()
-                plt.close()
+
             ## generate plots
-            fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,12))
+            fig = plt.figure(num = 1, clear = True, figsize= (6,6))
+            ax = fig.add_subplot(1, 1, 1)
             offset = 0
             for i in range(len(nnList)):
                 datax = self.fVals
@@ -223,7 +230,7 @@ class WFimage:
             ax.set_ylim([1, offset+1+spacing])
 
             plt.show()
-            plt.close()
+
 
     def waterfallMap(self, lineCut = [[0, 0], [1, 1]], stepSize =1, plotTrace = False, localmin = False, flipped = False):
         
@@ -231,7 +238,8 @@ class WFimage:
             if flipped:
                 theLine = theLine[::-1]
             if plotTrace:
-                fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
+                fig = plt.figure(num = 1, clear = True, figsize= (6,6))
+                ax = fig.add_subplot(1, 1, 1)
                 IMGplot = ax.imshow(self.dat[:,:,3].copy())
                 ## switch x and y for imshow
                 ##print(theLine)
@@ -240,18 +248,19 @@ class WFimage:
                 cax = divider.append_axes("right", size="5%", pad=0.05)
                 plt.colorbar(IMGplot, cax=cax)
                 plt.show()
-                plt.close()
+
             ## generate plots
             theimage = np.zeros((len(nnList), self.npoints))
             for i in range(len(nnList)):
                 theimage[i] = self.pointESR(theLine[i][0], theLine[i][1])
-            fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (12,6))
+            fig = plt.figure(num = 1, clear = True, figsize= (12,6))
+            ax = fig.add_subplot(1, 1, 1)
             themap = ax.imshow(theimage, extent=[self.fVals[0], self.fVals[-1], 0, len(nnList)], aspect='auto')
             divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(themap, cax=cax)
             plt.show()
-            plt.close()
+
 
             if localmin:
                 initFreq = np.fromstring(input("input the init pos (for example: 10, 20, 30):"), sep=',')
@@ -298,9 +307,7 @@ class WFimage:
                     plt.scatter(minArray[i], ydata)
 
                 plt.show()
-                plt.close()
 
-                
 
 
     def maskContourgen(self):
@@ -463,7 +470,7 @@ class WFimage:
                         print("auto guess fails.. Popt set to be none")
                         pOpt = None
                         pCov = None
-                        chiSq = None
+                        chiSq = 1
 
                 self.optList[(x, y)] = pOpt
                 self.covList[(x, y)] = pCov
@@ -476,24 +483,30 @@ class WFimage:
     def plotAndCorrect(self, x, y):
         print("current point: x {}; y {}".format(x, y))
         self.myFavoriatePlot(x, y, fitParas=[self.optList[(x, y)], self.covList[(x, y)], self.sqList[(x, y)]])
-        if int(input("Looks good?(1/0)")):
-            return 0, 0
-        else:
-            guessFreq = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
-            pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = len(guessFreq), initGuess=guessFreq)
-            self.myFavoriatePlot(x, y, fitParas=[pOpt, pCov, chiSq])
-            asw = int(input("Accept?(2/1/0)"))
-        return asw, [pOpt, pCov, chiSq]
+        guessFreq = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
+        pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = len(guessFreq), initGuess=guessFreq)
+        return [pOpt, pCov, chiSq]
     
-    def fitErrordetection(self, xrange, yrange, epschi = 5e-5, epsy = epslion_y):
+    def CorrectQ(self, x, y, fitList):
+        print("current point: x {}; y {}".format(x, y))
+        self.myFavoriatePlot(x, y, fitParas=fitList)
+        asw1 = int(input("Looks good?(0/1)"))
+        if asw1 == 1:
+            return asw1
+        else:
+            self.fitList = self.plotAndCorrect(x, y)            
+            self.myFavoriatePlot(x, y, fitParas=self.fitList)
+            asw2 = int(input("Accept?(-1/0/1)"))                
+            return asw2
+    
+    def fitErrordetection(self, xyarray, epschi = 5e-5, epsy = epslion_y):
         if self.isMultfit:
             self.errorIndex = []
-            for x in xrange:
-                for y in yrange:
-                    if self.sqList[(x, y)] is None:
-                        self.sqList[(x, y)] = 1
-                    if self.sqList[(x, y)] > epschi and min(self.dat[x, y]) < 1 - epsy and self.ckList[(x, y)] < 3:
-                        self.errorIndex.append([x,y])
+            for [x, y] in xyarray:
+                if self.sqList[(x, y)] is None:
+                    self.sqList[(x, y)] = 1
+                if self.sqList[(x, y)] > epschi and min(self.dat[x, y]) < 1 - epsy and self.ckList[(x, y)] < 3:
+                    self.errorIndex.append([x,y])
             
             self.isErrordetect = True
         else:
@@ -525,46 +538,149 @@ class WFimage:
                 return
             
 
-    def multiESRfitManualCorrection(self, isResume = False):
-        if self.isErrordetect:
-            if isResume:
-                currentIndex = self.resumeIndex
-            else:
-                currentIndex = 0
+    def multiESRfitManualCorrection(self, isResume = False, seedScan = False):
+        if isResume:
+            currentIndex = self.resumeIndex
+        else:
+            currentIndex = 0
+            
+        if seedScan and self.isSeeded:
+            errorList = self.seedList[currentIndex:]
+        elif self.isErrordetect:
             errorList = self.errorIndex[currentIndex:]
-            for [x, y] in errorList:
-                try:
-                    isRetry = 1
-                    while isRetry:
-                        asw1, fitList = self.plotAndCorrect(x, y)
-                        if asw1 == 1:
-                            self.optList[(x, y)] = fitList[0]
-                            self.covList[(x, y)] = fitList[1]
-                            self.sqList[(x, y)] = fitList[2]
-                            self.ckList[(x, y)] = 3
-                            asw2 = 0
-                        elif asw1 == 2:
-                            self.optList[(x, y)] = fitList[0]
-                            self.deleteFitpeaks(x, y)
-                            asw2, fitList = self.plotAndCorrect(x, y)
-                        elif asw1 == 0:
-                            if fitList == 0:
-                                asw2 = 0
-                            else:
-                                asw2 = int(input("Want to retry?(1/0)"))
+        else:
+            print("not responding! Do errordetection or seedgeneration first!!!")
 
-                        if asw2 == 0:
-                            isRetry = 0
+        for [x, y] in errorList:
+            try:
+                isRetry = True
+                self.fitList = [self.optList[(x, y)], self.covList[(x, y)], self.sqList[(x, y)]]
+                while isRetry:
+                    condition = self.CorrectQ(x, y, self.fitList)
+                    ##fitList = self.optList[(x, y)]
+                    if condition == 1:
+                        self.optList[(x, y)] = self.fitList[0]
+                        self.covList[(x, y)] = self.fitList[1]
+                        self.sqList[(x, y)] = self.fitList[2]
+                        self.ckList[(x, y)] = 3
 
-                except(ValueError, RuntimeError, IndexError) as e:
-                    print(e)
-                    self.resumeIndex = currentIndex
-                    print("Force to stop!")
-                    return 0
+                        isRetry = False
+                    elif condition < 0:
+                        self.deleteFitpeaks(x, y)
+                    else:
+                        self.fitList = self.plotAndCorrect(x, y)
+                        
+
+                    # asw1, fitList = self.plotAndCorrect(x, y)
+                    # if asw1 == 1:
+                    #     self.optList[(x, y)] = fitList[0]
+                    #     self.covList[(x, y)] = fitList[1]
+                    #     self.sqList[(x, y)] = fitList[2]
+                    #     self.ckList[(x, y)] = 3
+                    #     asw2 = 0
+                    # elif asw1 == 2:
+                    #     self.optList[(x, y)] = fitList[0]
+                    #     self.deleteFitpeaks(x, y)
+                    #     asw2, fitList = self.plotAndCorrect(x, y)
+                    # elif asw1 == 0:
+                    #     if fitList == 0:
+                    #         asw2 = 0
+                    #     else:
+                    #         asw2 = int(input("Want to retry?(1/0)"))
+
+                    # if asw2 == 0:
+                    #     isRetry = 0
+
+            except(ValueError, RuntimeError, IndexError) as e:
+                print(e)
+                self.resumeIndex = currentIndex
+                print("Force to stop!")
+                return 0
                 
-                currentIndex += 1
-            self.resumeIndex = 0
+            currentIndex += 1
+        self.resumeIndex = 0
+        self.isManualFit = True
         print("manual error correction finished!")
+
+
+    def randomSeedGen(self, xyarray, pointRatio = 0.01, plot = False):
+               
+        randomN = int(pointRatio*len(xyarray))
+        self.seedList = np.zeros((randomN, 2), dtype=int)
+        for i in range(randomN):
+            self.seedList[i] = random.choice(xyarray)
+
+        if plot:
+            fig = plt.figure(num = 1, clear = True, figsize= (6,6))
+            ax = fig.add_subplot(1, 1, 1)
+            IMGplot = ax.imshow(self.dat[:,:,3].copy())
+            sx,sy = self.seedList.transpose()
+            ax.scatter(sx, sy, color = 'r')
+
+            plt.show()
+        
+        self.isSeeded = True
+    
+    def fitCheckQ(self, xyarray):
+        correctArray = []
+        for [x, y] in xyarray:
+            if self.ckList[(x, y)]<2:
+                correctArray.append([x, y])
+        
+        return correctArray
+
+    def multiESRSeedfit(self, xlist, ylist, iter = 5, dist = 3, epschi = 5e-5, debug = True):
+        if not self.isNorm: #Added by Esther 20230524
+            self.norm()
+        ## initialize checks
+        for i in xlist:
+            for j in ylist:
+                self.ckList[(i,j)] = 0
+        
+        if self.isSeeded and self.isManualFit:
+            bathArray = np.array(list(itertools.product(xlist, ylist)))
+            theTree = cKDTree(bathArray)
+            ##currentLevel = []
+            for it in range(iter):
+                currentLevel = []
+                for [x, y] in self.seedList:
+                    theGroup = bathArray[theTree.query_ball_point([x, y], dist)]
+                    theGroup = self.fitCheckQ(theGroup)
+                    currentLevel.append(theGroup)
+                    for [xx, yy] in theGroup:
+                        theGuess = self.optList[(x, y)][3::3]
+                        try:
+                            pOpt, pCov, chiSq = self.singleESRfit(xx, yy, initGuess=theGuess)
+                            self.FitCheck = 2    
+                        except ValueError:
+                            print("The fitting fails.. please correct!")
+                            pOpt = None
+                            pCov = None
+                            chiSq = 1
+                            self.FitCheck = -2
+                                                                          
+                        self.optList[(xx, yy)] = pOpt
+                        self.covList[(xx, yy)] = pCov
+                        self.sqList[(xx, yy)] = chiSq
+                        self.ckList[(xx, yy)] = self.FitCheck
+                    print("{} {} has completed".format(x, y))
+                
+                currentLevel = [item for sublist in currentLevel for item in sublist]
+                self.seedList = np.array(currentLevel)
+                if debug:
+                    fig = plt.figure(num = 1, clear = True, figsize= (6,6))
+                    ax = fig.add_subplot(1, 1, 1)
+                    IMGplot = ax.imshow(self.dat[:,:,3].copy())
+                    sx,sy = self.seedList.transpose()
+                    ax.scatter(sx, sy, color = 'r')
+                
+                self.fitErrordetection(self.seedList, epschi = 1e-3)
+                self.multiESRfitManualCorrection(isResume = False, seedScan = False)
+
+
+
+
+        self.isSeedfit = True
 
     
     def multiESRfitAutoCorrection(self, guessFreq, isResume = False, forced = False):
@@ -642,14 +758,15 @@ class WFimage:
                     self.MWmap[x,y] = simpson(1 - yVals, fVals)
 
         if plot:
-            fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
+            fig = plt.figure(num = 1, clear = True, figsize= (6,6))
+            ax = fig.add_subplot(1, 1, 1)
             img1 = ax.imshow(self.MWmap)
             divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(img1, cax=cax)
 
             plt.show()
-            plt.close()
+
 
     
 
@@ -677,26 +794,29 @@ class WFimage:
         ypos += roi[1][0]-rr
 
         if plot:
-            fig, ax = plt.subplots(nrows=1, ncols= 3, figsize= (6*3,6))
-            img1 = ax[0].imshow(smallImg)
-            divider = make_axes_locatable(ax[0])
+            fig = plt.figure(num = 1, clear = True, figsize= (6*3,6))
+            ax1 = fig.add_subplot(1, 3, 1)
+            img1 = ax1.imshow(smallImg)
+            divider = make_axes_locatable(ax1)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(img1, cax=cax)
-
-            cr = ax[1].imshow(corr)
-            divider = make_axes_locatable(ax[1])
+            
+            ax2 = fig.add_subplot(1, 3, 2)
+            cr = ax2.imshow(corr)
+            divider = make_axes_locatable(ax2)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(cr, cax=cax)
 
             #print("x is found at {} px; y is found at {} px".format(xpos, ypos))
-            img2 = ax[2].imshow(bigImg)
-            ax[2].add_patch(Rectangle((ypos-2, xpos-2), 4, 4, fill=None, alpha = 1, color = 'red'))
-            divider = make_axes_locatable(ax[2])
+            ax3 = fig.add_subplot(1, 3, 3)
+            img2 = ax3.imshow(bigImg)
+            ax3.add_patch(Rectangle((ypos-2, xpos-2), 4, 4, fill=None, alpha = 1, color = 'red'))
+            divider = make_axes_locatable(ax3)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(img2, cax=cax)
 
             plt.show()
-            plt.close()
+
         return [xpos, ypos]
         
     def shiftDat(self, dx = 0, dy = 0):
@@ -709,8 +829,9 @@ class WFimage:
             ##Move it to the correct position!
             for j in np.arange(xx):
                 for k in np.arange(yy):
-                    if j+dx < xx and k+dy < yy:
-                        newdat[int(j+dx),int(k+dy),:]=self.dat[j,k,:]
+                    jj = int((j+dx) % xx)
+                    kk = int((k+dy) % yy)
+                    newdat[jj, kk,:]=self.dat[j,k,:]
             self.dat=newdat
 
     def DandE(self, realx, realy):
@@ -769,20 +890,22 @@ class WFimage:
                     self.Emap[x, y] = E
 
             if plot:
-                fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (6*2,6))
-                img1 = ax[0].imshow(self.Dmap, vmax = self.Dmax, vmin = self.Dmin)
-                divider = make_axes_locatable(ax[0])
+                
+                fig = plt.figure(num = 1, clear = True, figsize= (15,6))
+                ax = fig.add_subplot(1, 2, 1)
+                img1 = ax.imshow(self.Dmap, vmax = self.Dmax, vmin = self.Dmin)
+                divider = make_axes_locatable(ax)
                 cax = divider.append_axes("right", size="5%", pad=0.05)
                 plt.colorbar(img1, cax=cax)
 
-
-                img2 = ax[1].imshow(self.Emap, vmax = self.Emax, vmin = self.Emin)
-                divider = make_axes_locatable(ax[1])
+                ax = fig.add_subplot(1, 2, 2)
+                img2 = ax.imshow(self.Emap, vmax = self.Emax, vmin = self.Emin)
+                divider = make_axes_locatable(ax)
                 cax = divider.append_axes("right", size="5%", pad=0.05)
                 plt.colorbar(img2, cax=cax)
 
                 plt.show()
-                plt.close()
+
 
             return self.Dmap, self.Emap
         else:
@@ -792,7 +915,8 @@ class WFimage:
         if self.isMultfit:
             theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
             if plotTrace:
-                fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
+                fig = plt.figure(num = 1, clear = True, figsize= (6,6))
+                ax = fig.add_subplot(1, 1, 1)
                 IMGplot = ax.imshow(self.dat[:,:,3].copy())
                 ## switch x and y for imshow
 
@@ -801,9 +925,10 @@ class WFimage:
                 cax = divider.append_axes("right", size="5%", pad=0.05)
                 plt.colorbar(IMGplot, cax=cax)
                 plt.show()
-                plt.close()
+
                 ## generate plots
-            fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,12))
+            fig = plt.figure(num = 2, clear = True, figsize= (15,6))
+            ax = fig.add_subplot(1, 1, 1)
             Dlist = []
             Elist = []
             for i in range(len(nnList)):
@@ -821,14 +946,15 @@ class WFimage:
             
 
             plt.show()
-            plt.close()
+
 
 
     def DEwidthplot(self, lineCut = [[0, 0], [1, 1]], stepSize =1, plotTrace = False):
         if self.isMultfit:
             theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
             if plotTrace:
-                fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
+                fig = plt.figure(num = 1, clear = True, figsize= (6,6))
+                ax = fig.add_subplot(1, 1, 1)
                 IMGplot = ax.imshow(self.dat[:,:,3].copy())
                 ## switch x and y for imshow
 
@@ -839,7 +965,8 @@ class WFimage:
                 plt.show()
                 plt.close()
                 ## generate plots
-            fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,12))
+            fig = plt.figure(num = 2, clear = True, figsize= (6,12))
+            ax = fig.add_subplot(1, 1, 1)
             widthList = []
             for i in range(len(nnList)):
                 width = self.theWidth(theLine[i][0], theLine[i][1])
@@ -849,7 +976,6 @@ class WFimage:
             ax.plot(nnList, widthList, '.', color = 'r', markersize=2, label = "Width (GHz)")
 
             plt.show()
-            plt.close()
 
 
     # def NVESRexactfit(self, Fitfreqs, isFourpeaks = True):
@@ -973,37 +1099,41 @@ class multiWFImage:
 
 
     def test(self):
-        fig, ax = plt.subplots(nrows=self.Nfile, ncols= 1, figsize= (6,6*self.Nfile))
+        fig = plt.figure(num = 1, clear = True, figsize= (6,6*self.Nfile))
         for i in range(self.Nfile):
+            ax = fig.add_subplot(self.Nfile, 1, i+1)
             tmp = self.WFList[i].dat
             testimg = tmp[:,:,3].copy()
-            img = ax[i].imshow(testimg)
-            divider = make_axes_locatable(ax[i])
+            img = ax.imshow(testimg)
+            divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(img, cax=cax)
 
         plt.show()
 
     def myFavoriatePlot(self, x = 0, y = 0, spacing = 0.01, withFit = True, fitParas = None):
-        fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,6))
+        fig = plt.figure(num = 1, clear = True, figsize= (15,6))
+        
         ## plot the image
         # IMGplot = ax[0].imshow(self.originalDat[:,:,3].copy())
+        ax = fig.add_subplot(1, 2, 1)
         Nslice = 3
-        IMGplot = ax[0].imshow(self.imageStack(Nslice))
-        ax[0].add_patch(Rectangle((y - 1, x - 1), 1, 1, fill=None, alpha = 1))
-        divider = make_axes_locatable(ax[0])
+        IMGplot = ax.imshow(self.imageStack(Nslice))
+        ax.add_patch(Rectangle((y - 1, x - 1), 1, 1, fill=None, alpha = 1))
+        divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(IMGplot, cax=cax)
 
 
         ## plot single ESR
+        ax = fig.add_subplot(1, 2, 2)
         offset = 0
         for i in range(self.Nfile):
             tmpWF = self.WFList[i]
             spESR = tmpWF.pointESR(x, y)
             ymax = 1 - spESR.min()
             offset += ymax + spacing
-            ax[1].plot(tmpWF.fVals, spESR + offset, '.', color='k', markersize = 2)
+            ax.plot(tmpWF.fVals, spESR + offset, '.', color='k', markersize = 2)
 
             if withFit:
                 if fitParas is None:
@@ -1014,19 +1144,18 @@ class multiWFImage:
 
                 popt, pcov, chisq = tmpWF.singleESRfit(x, y)
                 print("the Chi square is {}".format(chisq))
-                ax[1].plot(tmpWF.fVals[peaks], spESR[peaks]+offset, 'x')
+                ax.plot(tmpWF.fVals[peaks], spESR[peaks]+offset, 'x')
             else:
                 [popt, pcov, chisq] = fitParas
         
             try:
                 for j in np.arange(int(np.floor(len(popt)/3))):
                     params= popt[1+3*j:4+3*j]
-                    ax[1].plot(tmpWF.fVals,popt[0]+mf.lorentzian(tmpWF.fVals,*params)+offset, '-', color = 'r')
+                    ax.plot(tmpWF.fVals,popt[0]+mf.lorentzian(tmpWF.fVals,*params)+offset, '-', color = 'r')
             except TypeError:
                 print("No good fit was found! Try increase Maxfev or try a better initial guess")
 
         plt.show()
-        plt.close()
 
     def imageStack(self, Nslice = 3, plot = False, imageList = None):
         if imageList is None:
@@ -1043,14 +1172,15 @@ class multiWFImage:
                 stackImage += tmpDat[:,:, Nslice]
         stackImage = stackImage/self.Nfile 
         if plot:
-            fig,ax=plt.subplots(1,1)
+            fig = plt.figure(num = 1, clear = True, figsize= (6,6))
+            ax = fig.add_subplot(1, 1, 1)
             ax.set_title("average image stack")
             imgs=ax.imshow(stackImage, interpolation=None)
             divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(imgs, cax=cax)
             plt.show()
-            plt.close()
+
         
         return stackImage
 
@@ -1067,6 +1197,7 @@ class multiWFImage:
             self.yhigh=ylow+yrange
         self.xr=np.arange(self.xlow,self.xhigh,1)
         self.yr=np.arange(self.ylow,self.yhigh,1)
+        self.xyArray = np.array(list(itertools.product(self.xr, self.yr)))
         self.rroi= [[self.xlow,self.xhigh],[self.ylow,self.yhigh]]
         self.isROI = True
         self.mgSize = 3
@@ -1080,7 +1211,8 @@ class multiWFImage:
 
         if plot:
             image = self.imageStack()
-            fig,ax=plt.subplots(1,1)
+            fig = plt.figure(num = 1, clear = True, figsize= (6,6))
+            ax = fig.add_subplot(1, 1, 1)
             ax.set_title("average image stack with roi")
             imgs=ax.imshow(image, interpolation=None)
             ax.add_patch(Rectangle((self.ylow, self.xlow), self.yhigh-self.ylow+self.mgSize, self.xhigh-self.xlow+self.mgSize, fill=None, alpha = 1))
@@ -1088,7 +1220,7 @@ class multiWFImage:
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(imgs, cax=cax)
             plt.show()
-            plt.close()
+
     
     def normImg(self, img):
         img = np.array(img)
@@ -1135,19 +1267,22 @@ class multiWFImage:
             self.imgShift = shiftXY
             aftAlignImg = self.imageStack(Nslice = nslice) 
 
-            fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,6))
-            bef = ax[0].imshow(beforeAlignImg)
-            divider = make_axes_locatable(ax[0])
+            fig = plt.figure(num = 1, clear = True, figsize= (15,6))
+            ax = fig.add_subplot(1, 2, 1)
+            
+            bef = ax.imshow(beforeAlignImg)
+            divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(bef, cax=cax)
 
-            aft = ax[1].imshow(aftAlignImg)
-            divider = make_axes_locatable(ax[1])
+            ax = fig.add_subplot(1, 2, 2)
+            aft = ax.imshow(aftAlignImg)
+            divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(aft, cax=cax)
 
             plt.show()
-            plt.close()
+
             self.isAlign = True
         else:
             print("This function can only operate after assgining a roi!!")
@@ -1179,19 +1314,21 @@ class multiWFImage:
         self.imgShift = np.array(shiftXY)
         aftAlignImg = self.imageStack(Nslice = nslice)
         
-        fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,6))
-        bef = ax[0].imshow(beforeAlignImg)
-        divider = make_axes_locatable(ax[0])
+        fig = plt.figure(num = 1, clear = True, figsize= (15,6))
+        ax = fig.add_subplot(1, 2, 1)
+        bef = ax.imshow(beforeAlignImg)
+        divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(bef, cax=cax)
 
-        aft = ax[1].imshow(aftAlignImg)
-        divider = make_axes_locatable(ax[1])
+        ax = fig.add_subplot(1, 2, 2)
+        aft = ax.imshow(aftAlignImg)
+        divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(aft, cax=cax)
 
         plt.show()
-        plt.close()
+
         self.isAlign = True
 
 
@@ -1230,43 +1367,46 @@ class multiWFImage:
     def plotroiDEmap(self, refN = None, withroi = False):
         if self.isDEmap:
             if refN is None:
-                fig, ax = plt.subplots(nrows=2, ncols= self.Nfile, figsize= (7*self.Nfile,6*2))
+                fig = plt.figure(num = 1, clear = True, figsize= (7*self.Nfile,6*2))
                 for i in range(self.Nfile):
-                    dmap = ax[0, i].imshow(self.roiDmap[:, :, i], vmax = 3, vmin = 2.8)
-                    ax[0, i].set_title("roi D map")
-                    divider = make_axes_locatable(ax[0, i])
+                    ax1 = fig.add_subplot(2, self.Nfile, 2*i+1)
+                    dmap = ax1.imshow(self.roiDmap[:, :, i], vmax = 3, vmin = 2.8)
+                    ax1.set_title("roi D map")
+                    divider = make_axes_locatable(ax1)
                     cax = divider.append_axes("right", size="5%", pad=0.05)
                     plt.colorbar(dmap, cax=cax)
-
-                    emap = ax[1, i].imshow(self.roiEmap[:, :, i], vmax = 0.2, vmin = 0)
-                    ax[1, i].set_title("roi E map")
-                    divider = make_axes_locatable(ax[1, i])
+                    
+                    ax2 = fig.add_subplot(2, self.Nfile, 2*i+2)
+                    emap = ax2.imshow(self.roiEmap[:, :, i], vmax = 0.2, vmin = 0)
+                    ax2.set_title("roi E map")
+                    divider = make_axes_locatable(ax2)
                     cax = divider.append_axes("right", size="5%", pad=0.05)
                     plt.colorbar(emap, cax=cax)
 
                 plt.show()
-                plt.close()
+
             else:
-                fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15,6))
-                dmap = ax[0].imshow(self.roiDmap[:, :, refN], vmax = 3, vmin = 2.8)
+                fig = plt.figure(num = 1, clear = True, figsize= (15,6))
+                ax = fig.add_subplot(1, 2, 1)
+                dmap = ax.imshow(self.roiDmap[:, :, refN], vmax = 3, vmin = 2.8)
                 if withroi:
-                    ax[0].add_patch(Rectangle((self.ylow, self.xlow), self.yhigh-self.ylow+self.mgSize, self.xhigh-self.xlow+self.mgSize, fill=None, alpha = 1))
-                ax[0].title.set_text("D map (GHz)")
+                    ax.add_patch(Rectangle((self.ylow, self.xlow), self.yhigh-self.ylow+self.mgSize, self.xhigh-self.xlow+self.mgSize, fill=None, alpha = 1))
+                ax.title.set_text("D map (GHz)")
                 divider = make_axes_locatable(ax[0])
                 cax = divider.append_axes("right", size="5%", pad=0.05)
                 plt.colorbar(dmap, cax=cax)
 
-
-                emap = ax[1].imshow(self.roiEmap[:, :, refN], vmax = 0.2, vmin = 0)
+                ax = fig.add_subplot(1, 2, 2)
+                emap = ax.imshow(self.roiEmap[:, :, refN], vmax = 0.2, vmin = 0)
                 if withroi:
-                    ax[1].add_patch(Rectangle((self.ylow, self.xlow), self.yhigh-self.ylow+self.mgSize, self.xhigh-self.xlow+self.mgSize, fill=None, alpha = 1))
-                ax[1].title.set_text("E map (GHz)")
+                    ax.add_patch(Rectangle((self.ylow, self.xlow), self.yhigh-self.ylow+self.mgSize, self.xhigh-self.xlow+self.mgSize, fill=None, alpha = 1))
+                ax.title.set_text("E map (GHz)")
                 divider = make_axes_locatable(ax[1])
                 cax = divider.append_axes("right", size="5%", pad=0.05)
                 plt.colorbar(emap, cax=cax)
 
                 plt.show()
-                plt.close()
+
         else:
             print("This function can only operate after operating ROIDEmaps!!")
 
@@ -1290,25 +1430,30 @@ class multiWFImage:
                 tmpDstd = np.std(tmpDs)
                 Dstds.append(tmpDstd)
 
-            fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15,6))
-            ax[0].plot(self.ParaList, Emeans, '-', color = 'r')
-            ax[0].set_ylim(0, Eymax)
-            ax[0].title.set_text("E (GHz)")
-            ax[0].errorbar(self.ParaList, Emeans, yerr = Estds, fmt ='o')
+            fig = plt.figure(num = 1, clear = True, figsize= (15,6))
+            ax = fig.add_subplot(1, 2, 1)
+            ax.plot(self.ParaList, Emeans, '-', color = 'r')
+            ax.set_ylim(0, Eymax)
+            ax.title.set_text("E (GHz)")
+            ax.errorbar(self.ParaList, Emeans, yerr = Estds, fmt ='o')
 
-            ax[1].plot(self.ParaList, Dmeans, '-', color = 'r')
-            ax[1].set_ylim(0, Dymax)
-            ax[1].title.set_text("D (GHz)")
-            ax[1].errorbar(self.ParaList, Dmeans, yerr = Dstds, fmt ='o')
+            ax = fig.add_subplot(1, 2, 2)
+            ax.plot(self.ParaList, Dmeans, '-', color = 'r')
+            ax.set_ylim(0, Dymax)
+            ax.title.set_text("D (GHz)")
+            ax.errorbar(self.ParaList, Dmeans, yerr = Dstds, fmt ='o')
             plt.show()
-            plt.close()
+
 
         else:
             print("please generate DE map and input the parameter list")
 
     def lineroiDEvsParas(self, Espacing = 0.1, Dspacing = 0.1):
         if self.isDEmap and self.isPara and self.roiShape == 'line':
-            fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (12,12))
+            fig = plt.figure(num = 1, clear = True, figsize= (12,12))
+            ax1 = fig.add_subplot(1, 2, 1)
+            ax2 = fig.add_subplot(1, 2, 1)
+            
             Eoffset = 0
             Doffset = 0
             if len(self.xr) == 1:
@@ -1322,12 +1467,12 @@ class multiWFImage:
                 Espan = dataE.max() - dataE.min()
                 Dspan = dataD.max() - dataD.min()
 
-                ax[0].plot(datax, dataE + Eoffset, '-.', color = 'k', markersize=2)
-                ax[1].plot(datax, dataD + Doffset, '-.', color = 'k', markersize=2)
+                ax1.plot(datax, dataE + Eoffset, '-.', color = 'k', markersize=2)
+                ax2.plot(datax, dataD + Doffset, '-.', color = 'k', markersize=2)
                 Eoffset += Espan + Espacing
                 Doffset += Dspan + Dspacing
                 
             plt.show()
-            plt.close()
+
         else:
             print("please generate DE map and input the parameter list also make sure the roi is a line")

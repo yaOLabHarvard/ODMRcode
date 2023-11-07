@@ -19,8 +19,8 @@ fileName = 'zfc-150K-2A'
 
 #%%
 ## load multiple files
-MFWF=wf.multiWFImage(labqfolderpath)
-MFWF.setFileParameters(parameters=[150,210,270,0,50])
+MFWF=wf.multiWFImage(labbfolderpath)
+MFWF.setFileParameters(parameters=[0,0.1,0.25,0.5,1,2,7,5,-1])
 ##MFWF.test()
 
 # %%
@@ -52,8 +52,8 @@ MFWF.plotroiDEmap(withroi=True)
 
 # %%
 # This block tests manual correction
-testWF = MFWF.WFList[4]
-currentE = 0
+testWF = MFWF.WFList[5]
+currentE = 1e-5
 MFWF.roi(xlow=20, ylow=82, xrange=100, yrange=1, plot=True)
 #MFWF.roi(xlow=55, ylow=82, xrange=20, yrange=1, plot=True)
 testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = currentE)
@@ -99,8 +99,8 @@ testWF.multiESRfit(xr, yr)
 # plt.close()
 # %%
 ## test for single pt esr
-testWF = MFWF.WFList[4]
-# px=15
+testWF = MFWF.WFList[5]
+# px=40
 # py=82
 # testWF.myFavoriatePlot(px, py, maxPeak = 4)
 ##75,125,160,200
@@ -179,6 +179,7 @@ MFWF.lineroiDEvsParas(Espacing = 0.1)
 # MFWF.roiDEvsParas()
 
 # %%
+labfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/igor/'
 MFWF.roi(xlow=20, ylow=82, xrange=100, yrange=1, plot=True)
 for i in range(MFWF.Nfile):
     dataE = MFWF.roiEmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()

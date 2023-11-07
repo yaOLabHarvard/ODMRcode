@@ -8,6 +8,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 # homefolderpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/data/'
 # labtfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_T/'
 labbfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
+labqfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_Q/'
+labfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/igor/'
 # figpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/picture/'
 # picklepath='D:/work/py/attodry_lightfield/ODMRcode/newCode/pickle/'
 testpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/'
@@ -17,8 +19,8 @@ fileName = 'zfc-150K-2A'
 
 #%%
 ## load multiple files
-MFWF=wf.multiWFImage(labbfolderpath)
-MFWF.setFileParameters(parameters=[0,0.1,0.25,0.5,1,2,7,5,-1])
+MFWF=wf.multiWFImage(labqfolderpath)
+MFWF.setFileParameters(parameters=[150,210,270,0,50])
 ##MFWF.test()
 
 # %%
@@ -30,10 +32,12 @@ MFWF.loadFitResult(refreshChecks = True)
 ## do manual image correlation
 MFWF.manualAlign(nslice = 3, referN = 0)
 
+#%%
+print(MFWF.imgShift)
 # %%
 ## pick a roi and do image correlations
-MFWF.roi(xlow=43, ylow=40, xrange=20, yrange=20, plot=False)
-MFWF.imageAlign(nslice = 2, referN = 0, rr=5, debug = False)
+MFWF.roi(xlow=43, ylow=30, xrange=20, yrange=20, plot=True)
+MFWF.imageAlign(nslice = 3, referN = 0, rr=5, debug = True)
 
 # %%
 ## pick a roi and do multi esr for all images
@@ -48,18 +52,18 @@ MFWF.plotroiDEmap(withroi=True)
 
 # %%
 # This block tests manual correction
-testWF = MFWF.WFList[5]
+testWF = MFWF.WFList[4]
 currentE = 0
-MFWF.roi(xlow=28, ylow=82, xrange=92, yrange=1, plot=True)
+MFWF.roi(xlow=20, ylow=82, xrange=100, yrange=1, plot=True)
 #MFWF.roi(xlow=55, ylow=82, xrange=20, yrange=1, plot=True)
 testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = currentE)
 testWF.multiESRfitManualCorrection(isResume = False)
 # %%
 ## 2.728,2.773,2.876,2.901,2.991,3.016,3.07,3.076
 ## 2.875,2.91,2.94,2.96, 2.97
-# This block tests auto correction
-# guessfound = [2.89,2.91,2.943,2.95]
-# testWF.multiESRfitAutoCorrection(guessfound, forced = False, isResume = True)
+##This block tests auto correction
+guessfound = [2.91,2.93]
+testWF.multiESRfitAutoCorrection(guessfound, forced = False, isResume = True)
 #%%
 ##testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = currentE)
 testWF.multiESRfitManualCorrection(isResume = True)
@@ -95,7 +99,7 @@ testWF.multiESRfit(xr, yr)
 # plt.close()
 # %%
 ## test for single pt esr
-testWF = MFWF.WFList[8]
+testWF = MFWF.WFList[4]
 # px=15
 # py=82
 # testWF.myFavoriatePlot(px, py, maxPeak = 4)
@@ -168,19 +172,20 @@ MFWF.generateroiDEmap()
 # MFWF.roiDEvsParas()
 ## line
 MFWF.roi(xlow=20, ylow=82, xrange=100, yrange=1, plot=True)
-MFWF.roiDEvsParas()
-MFWF.lineroiDEvsParas()
+MFWF.roiDEvsParas(Eymax = 0.5)
+MFWF.lineroiDEvsParas(Espacing = 0.1)
 # ## square
 # MFWF.roi(xlow=70, ylow=70, xrange=5, yrange=5, plot=True)
 # MFWF.roiDEvsParas()
 
-# # %%
-# for i in range(MFWF.Nfile):
-#     dataE = MFWF.roiEmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
-#     dataD = MFWF.roiDmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
-#     filename = MFWF.fileDir[i].split('.')[0] + '_fit.txt'
-#     output = np.array([dataE,dataD]).transpose()
-#     np.savetxt(homefolderpath+filename, output)
+# %%
+MFWF.roi(xlow=20, ylow=82, xrange=100, yrange=1, plot=True)
+for i in range(MFWF.Nfile):
+    dataE = MFWF.roiEmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
+    dataD = MFWF.roiDmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
+    filename = MFWF.fileDir[i].split('.')[0] + '_fit.txt'
+    output = np.array([dataE,dataD]).transpose()
+    np.savetxt(labfolderpath+filename, output)
 
 
 # # %%
@@ -241,4 +246,6 @@ for i in range(9):
     fname = 'x100y82_'+nlist[i]+ '.txt'
     data = np.array([esry, esrf]).transpose()
     np.savetxt(txtpath+fname, data)
+# %%
+MFWF.test()
 # %%

@@ -407,11 +407,34 @@ class WFimage:
                     ##print(self.peakPos)
                 ## generate real peaks based on the center freqs
                 initParas = mf.generate_pinit(self.fVals[self.peakPos], yVals[self.peakPos])
-                try:
-                    pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=max_repeat)
-                except ValueError:
-                    self.FitCheck = -2
-                    raise ValueError("The singleESRfit fails.. pOpt set to be none")
+
+                if initGuess is None and autofind is True:## initGuess is not None or (initGuess is None and autofind is False):
+                    try:
+                        pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=max_repeat)
+                    except ValueError:
+                        print("auto singleESRfit fails.. set opt to be none")
+                        self.FitCheck = -2
+                        pOpt = None
+                        pCov = None
+
+                else:
+                    try:
+                        pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=max_repeat)
+                    except ValueError:
+                        self.FitCheck = -2
+                        print("The guess singleESRfit fails.. Now will try auto method")
+                        self.peakPos = self.singleESRpeakfind(x, y, method='pro', max_peak = max_peak)
+                        initParas = mf.generate_pinit(self.fVals[self.peakPos], yVals[self.peakPos])
+                
+                        try:
+                            pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=max_repeat)
+                        except ValueError:
+                            print("auto singleESRfit fails.. set opt to be none")
+                            self.FitCheck = -2
+                            pOpt = None
+                            pCov = None
+
+
                 # print(pOpt)
                 self.pOptPrint=pOpt
                 if pOpt is not None:
@@ -868,7 +891,7 @@ class WFimage:
     def DEmap(self, plot = False):
         if self.isMultfit:
             self.Dmap = np.zeros((self.X, self.Y))
-            self.Emap = np.zeros((self.X, self.Y))
+            self.Emap = np.ones((self.X, self.Y))
             self.Dmax = 0
             self.Dmin = 1e6
             self.Emax = 0

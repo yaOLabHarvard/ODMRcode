@@ -120,6 +120,7 @@ testWF.waterfallPlot(lineCut = linecut, stepSize = 5,  spacing = 0.01, plotTrace
 plt.savefig(figpath+"hcut"+str(currentB)+"G.png")
 # %%
 ## B/H plot for single image
+# DD,EE=testWF.DEmap(plot=False)
 ref = EE[120, 30]
 fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
 img = ax.imshow(EE/ref, vmax = 1.5, vmin = 0)

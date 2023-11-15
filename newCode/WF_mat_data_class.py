@@ -364,11 +364,11 @@ class WFimage:
                 peakPos, _ = find_peaks(1 - yVals, prominence=(0.0008,0.3))
             elif min(yVals)<0.990 and min(yVals)>0.975:
                 # print('high prom')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.001,0.3))
             # # elif min(yVals)<0.992 and min(yVals)>0.985:
             else:
                 # print('ultra high prom')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.004,0.4))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.002,0.4))
         peak_values = yVals[peakPos]
         posPeaks = np.array([i for i in peak_values if i > 0])
         #   Sort the peaks by amplitude (highest to lowest)
@@ -1069,6 +1069,7 @@ class multiWFImage:
             self.WFList.append(tmpWF)
             self.fileDir[self.Nfile] = filename
             self.Nfile += 1
+            np.append(self.imgShift,[[0,0]],axis = 0)
             print("The file has been added! Current Iamge list: \n")
             print(self.fileDir)
 

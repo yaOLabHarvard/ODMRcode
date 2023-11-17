@@ -2,6 +2,7 @@
 import WF_mat_data_class as wf
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib import pyplot as plt
 # labtfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_T/'
 labbfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
 labqfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_Q/'
@@ -11,6 +12,7 @@ txtpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/esr_igor/'
 bssco3Tfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_T/'
 bssco3bfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_B/'
 bssco320gpabfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_20GPa_B/'
+bssco320gpatfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_20GPa_T/'
 fileName = 'bscco3_100K-1p6a'
 
 
@@ -18,8 +20,9 @@ fileName = 'bscco3_100K-1p6a'
 #%%
 ######################################
 ## load multiple files
-MFWF=wf.multiWFImage(bssco320gpabfolderpath)
-MFWF.setFileParameters(parameters=[0, 0.4,0.8,1.2])
+MFWF=wf.multiWFImage(bssco320gpatfolderpath)
+MFWF.setFileParameters(parameters=[119,138,50,60,73,95])
+## parameters=[0, 0.4,0.8,1.2]
 ## parameters=[100, 103, 113, 128, 149, 158, 160, 160, 61, 70, 80, 90, 50]
 MFWF.test()
 ######################################
@@ -57,7 +60,7 @@ MFWF.manualAlign(nslice = 3, referN = 0)
 ######################################
 ## pick a roi and do auto image correlations
 MFWF.roi(xlow=60, ylow=20, xrange=20, yrange=20, plot=True)
-MFWF.imageAlign(nslice = 3, referN = 0, rr=5, debug = True)
+MFWF.imageAlign(nslice = 3, referN = 1, rr=5, debug = True)
 ######################################
 
 
@@ -127,16 +130,16 @@ testWF.multiESRfitManualCorrection(isResume = True)
 #%%
 ######################################
 ## test for single pt esr by mfp or waterfall plots
-testWF = MFWF.WFList[0]
-px=120
-py=80
+testWF = MFWF.WFList[5]
+px=80
+py=90
 testWF.myFavoriatePlot(px, py, maxPeak = 6)
 
-# ycut = 90
-# linecut = [[20, ycut],[140, ycut]]
+ycut = 90
+linecut = [[20, ycut],[140, ycut]]
 # linecut = [[40,50],[140,80]]
 # testWF.waterfallPlot(lineCut = linecut, stepSize = 5,  spacing = 0.005, plotTrace = True,plotFit=False)
-# testWF.waterfallMap(lineCut = linecut, stepSize =1, plotTrace = False, localmin = False, flipped = False)
+testWF.waterfallMap(lineCut = linecut, stepSize =1, plotTrace = True, localmin = False, flipped = False)
 # testWF.DElineplot(lineCut = linecut , stepSize =1, plotTrace = True, plotD = False, plotE = True)
 # testWF.DEwidthplot(lineCut = linecut , stepSize =1, plotTrace = True)
 ######################################
@@ -169,6 +172,53 @@ MFWF.roiDEvsParas(Eymax=0.15, Dymax=3)
 
 # %%
 ######################################
+## B/H plot for single image
+figpath = "F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/"
+testWF = MFWF.WFList[8]
+currentT = MFWF.ParaList[8]
+DD,EE=testWF.DEmap(plot=False)
+ref = EE[120, 30]
+fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
+img = ax.imshow(EE/ref, vmax = 1.5, vmin = 0)
+ax.title.set_text("B/H map")
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="5%", pad=0.05)
+plt.colorbar(img, cax=cax)
+plt.savefig(figpath+"BHmap"+str(currentT)+"K.png")
+plt.show()
+plt.close()
+######################################
+
+# %%
+######################################
+## DE plot for one of MFWF
+figpath = "F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/"
+ii = 12
+testWF = MFWF.WFList[8]
+MFWF.roi(xlow=20, ylow=15, xrange=120, yrange=120, plot=True)
+testWF.multix = MFWF.xr
+testWF.multiy = MFWF.yr
+DD,EE=testWF.DEmap(plot=False)
+fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15,6))
+img1 = ax[0].imshow(DD, vmax = 3, vmin = 2.8)
+ax[0].title.set_text("D map (GHz)")
+divider = make_axes_locatable(ax[0])
+cax = divider.append_axes("right", size="5%", pad=0.05)
+plt.colorbar(img1, cax=cax)
+
+
+img2 = ax[1].imshow(EE, vmax = 0.2, vmin = 0)
+ax[1].title.set_text("E map (GHz)")
+divider = make_axes_locatable(ax[1])
+cax = divider.append_axes("right", size="5%", pad=0.05)
+plt.colorbar(img2, cax=cax)
+
+plt.savefig(figpath+"data" + str(ii) + ".png")
+plt.show()
+plt.close()
+######################################
+# %%
+######################################
 # save D and E line results
 labfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/igor/'
 MFWF.roi(xlow=115, ylow=75, xrange=100, yrange=1, plot=True)
@@ -195,7 +245,7 @@ for i in range(MFWF.Nfile):
 
 np.savetxt(labfolderpath+filename, exportData)
 ######################################
-# %%
+# %% under construction
 from scipy.spatial import cKDTree
 import itertools
 from matplotlib import pyplot as plt
@@ -273,12 +323,8 @@ testWF.randomSeedGen(MFWF.xyArray, pointRatio = 2e-3, plot=True)
 testWF.multiESRfitManualCorrection(isResume = False, seedScan = True)
 multiESRSeedfit(testWF, MFWF.xr, MFWF.yr, iter = 5, dist = 3, epschi = 1e-2, debug = True)
 # %%
-bathArray = np.array(list(itertools.product(np.arange(1,10), np.arange(1,10))))
-theTree = cKDTree(bathArray)
-print(bathArray[theTree.query_ball_point([5, 5], 2)])
 # %%
-# %%
-from matplotlib import pyplot as plt
+
 figpath = "F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/"
 ii = 12
 testWF = MFWF.WFList[8]
@@ -345,8 +391,3 @@ print(currentLevel)
 testWF.fitErrordetection(currentLevel, epschi = 1e-4)
 print(testWF.errorIndex)
 testWF.multiESRfitManualCorrection(isResume = False, seedScan = False)
-# %%
-MFWF.imgShift = np.zeros((MFWF.Nfile, 2))
-# %%
-MFWF.setFileParameters(parameters=[100, 103, 113, 128, 149, 158, 160, 160, 61, 70, 80, 90, 50])
-# %%

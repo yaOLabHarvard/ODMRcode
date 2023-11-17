@@ -1050,6 +1050,7 @@ class multiWFImage:
         self.isAlign = False
         self.um=False #If false, it doesn't convert pixels to micron.
         self.isROIfit = False
+        self.ROIfitloaded = False
         self.ROIfitsaved = False
         self.isDEmap = False
         self.isPara = False

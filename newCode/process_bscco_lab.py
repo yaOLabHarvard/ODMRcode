@@ -20,8 +20,8 @@ fileName = 'bscco3_100K-1p6a'
 #%%
 ######################################
 ## load multiple files
-MFWF=wf.multiWFImage(bssco320gpatfolderpath)
-MFWF.setFileParameters(parameters=[119,138,50,60,73,95])
+MFWF=wf.multiWFImage(bssco3bfolderpath)
+MFWF.setFileParameters(parameters=[-1,10,20,40,60,100,0])
 ## parameters=[0, 0.4,0.8,1.2]
 ## parameters=[100, 103, 113, 128, 149, 158, 160, 160, 61, 70, 80, 90, 50]
 MFWF.test()
@@ -67,8 +67,15 @@ MFWF.imageAlign(nslice = 3, referN = 1, rr=5, debug = True)
 # %%
 ######################################
 ## pick a roi and do multi esr for all images
-MFWF.roi(xlow=20, ylow=15, xrange=120, yrange=120, plot=True)
-MFWF.roiMultiESRfit(max_peak = 8)
+MFWF.roi(xlow=82, ylow=73, xrange=5, yrange=1, plot=True)
+MFWF.roiMultiESRfit(max_peak = 6)
+######################################
+
+# %%
+######################################
+## pick a linecut and do multi esr for all images
+MFWF.roi(xlow=82, ylow=73, xrange=36, yrange=13, plot=True, lineCut=True)
+MFWF.roiMultiESRfit(max_peak = 6, lineFit = True)
 ######################################
 
 
@@ -92,20 +99,20 @@ MFWF.imageAlign(nslice = 3, referN = 0, rr=5, debug = True)
 # %%
 ######################################
 ## create a seed region in the selected roi and plot seeds
-testWF = MFWF.WFList[5]
+testWF = MFWF.WFList[0]
 MFWF.roi(xlow=40, ylow=40, xrange=100, yrange=100, plot=True)
 testWF.randomSeedGen(MFWF.xyArray, pointRatio = 0.001, plot=True)
 testWF.multiESRfitManualCorrection(isResume = False, seedScan = True)
 ######################################
 
 #%%
-
+print(MFWF.xyArray)
 # %%
 ######################################
 ## manual correction with given error thorshold
-testWF = MFWF.WFList[5]
-currentE = 1e-5
-MFWF.roi(xlow=20, ylow=82, xrange=100, yrange=1, plot=True)
+testWF = MFWF.WFList[6]
+currentE = 0
+MFWF.roi(xlow=82, ylow=73, xrange=36, yrange=13, plot=True, lineCut=True)
 #MFWF.roi(xlow=55, ylow=82, xrange=20, yrange=1, plot=True)
 testWF.fitErrordetection(MFWF.xyArray, epschi = currentE)
 testWF.multiESRfitManualCorrection(isResume = False)
@@ -130,19 +137,20 @@ testWF.multiESRfitManualCorrection(isResume = True)
 #%%
 ######################################
 ## test for single pt esr by mfp or waterfall plots
-testWF = MFWF.WFList[5]
-px=80
-py=90
-testWF.myFavoriatePlot(px, py, maxPeak = 6)
+testWF = MFWF.WFList[0]
+# px=80
+# py=90
+# testWF.myFavoriatePlot(px, py, maxPeak = 6)
 
-ycut = 90
+ycut = 75
 linecut = [[20, ycut],[140, ycut]]
-# linecut = [[40,50],[140,80]]
+# linecut = [[82,73],[117,85]]
 # testWF.waterfallPlot(lineCut = linecut, stepSize = 5,  spacing = 0.005, plotTrace = True,plotFit=False)
 testWF.waterfallMap(lineCut = linecut, stepSize =1, plotTrace = True, localmin = False, flipped = False)
 # testWF.DElineplot(lineCut = linecut , stepSize =1, plotTrace = True, plotD = False, plotE = True)
 # testWF.DEwidthplot(lineCut = linecut , stepSize =1, plotTrace = True)
 ######################################
+
 
 
 # %%
@@ -158,13 +166,13 @@ MFWF.plotroiDEmap(withroi=True)
 # MFWF.roi(xlow=29, ylow=130, xrange=120, yrange=1, plot=False)
 # MFWF.generateroiDEmap()
 ## point
-MFWF.roi(xlow=115, ylow=75, xrange=1, yrange=1, plot=True)
-MFWF.generateroiDEmap()
-MFWF.roiDEvsParas(Eymax=0.15, Dymax=3)
+# MFWF.roi(xlow=115, ylow=75, xrange=1, yrange=1, plot=True)
+# MFWF.generateroiDEmap()
+# MFWF.roiDEvsParas(Eymax=0.15, Dymax=3)
 # ## line
-# MFWF.roi(xlow=20, ylow=82, xrange=100, yrange=1, plot=True)
-# MFWF.roiDEvsParas(Eymax = 0.5)
-# MFWF.lineroiDEvsParas(Espacing = 0.1)
+MFWF.roi(xlow=40, ylow=90, xrange=20, yrange=1, plot=True)
+MFWF.roiDEvsParas(Eymax = 0.5)
+MFWF.lineroiDEvsParas(Espacing = 0.1)
 # ## square
 # MFWF.roi(xlow=70, ylow=70, xrange=5, yrange=5, plot=True)
 # MFWF.roiDEvsParas()
@@ -221,13 +229,22 @@ plt.close()
 ######################################
 # save D and E line results
 labfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/igor/'
-MFWF.roi(xlow=115, ylow=75, xrange=100, yrange=1, plot=True)
+MFWF.roi(xlow=82, ylow=73, xrange=36, yrange=13, plot=True, lineCut=True)
 for i in range(MFWF.Nfile):
-    dataE = MFWF.roiEmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
-    dataD = MFWF.roiDmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
-    filename = MFWF.fileDir[i].split('.')[0] + '_fit.txt'
-    output = np.array([dataE,dataD]).transpose()
-    np.savetxt(labfolderpath+filename, output)
+    tmpWF = MFWF.WFList[i]
+    # dataE = MFWF.roiEmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
+    # dataD = MFWF.roiDmap[MFWF.rroi[0][0]:MFWF.rroi[0][1],MFWF.rroi[1][0]:MFWF.rroi[1][1], i].flatten()
+    linenn = len(MFWF.xyArray)
+    dataD = []
+    dataE = []
+    for [x,y] in MFWF.xyArray:
+        DD,EE = tmpWF.DandE(x,y)
+        dataD.append(DD)
+        dataE.append(EE)
+
+filename = MFWF.fileDir[i].split('.')[0] + '_hp_fit_2.txt'
+output = np.array([dataE,dataD]).transpose()
+np.savetxt(labfolderpath+filename, output)
 ######################################
 
 # %%
@@ -245,6 +262,20 @@ for i in range(MFWF.Nfile):
 
 np.savetxt(labfolderpath+filename, exportData)
 ######################################
+
+
+# %%
+######################################
+# create splitting vs B plot for a specific linecut
+##testWF = MFWF.WFList[0]
+ycut = 90
+linecut = [[20, ycut],[140, ycut]]
+MFWF.roi(xlow=20, ylow=90, xrange=120, yrange=1, plot=True)
+MFWF.roiMultiESRfit(max_peak = 8)
+##wf.lineCutGen(lineCut = linecut, stepSize =10)
+######################################
+
+
 # %% under construction
 from scipy.spatial import cKDTree
 import itertools

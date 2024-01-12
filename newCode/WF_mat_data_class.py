@@ -166,36 +166,9 @@ class WFimage:
 
         plt.show()
 
-    def lineCutGen(self, lineCut = [[0, 0], [1, 1]], stepSize =1):
-        if self.isNorm:
-            ## generate lineCut
-            dx = lineCut[1][0]-lineCut[0][0]
-            dy = lineCut[1][1]-lineCut[0][1]
-            if dx > dy:
-                nn = dx
-                isX = True
-                slope = dy/dx
-            else:
-                nn = dy
-                isX = False
-                slope = dx/dy
-
-            nnList = np.arange(0, nn, stepSize)
-            theLine = np.zeros((len(nnList),2), dtype=int)
-            flag = 0
-            for i in nnList:
-                if isX:
-                    pts = [lineCut[0][0] + i, int(round(lineCut[0][1] + i*slope))]
-                else:
-                    pts = [int(round(lineCut[0][0] + i*slope)), lineCut[0][1] + i]
-            
-                theLine[flag] = pts
-                flag += 1
-            return theLine, nnList
-
     def waterfallPlot(self, lineCut = [[0, 0], [1, 1]], stepSize =1,  spacing = 0.01, plotTrace = False, plotFit = False):
         
-            theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
+            theLine, nnList = lineCutGen(lineCut = lineCut, stepSize = stepSize)
             if plotTrace:
                 fig = plt.figure(num = 1, clear = True, figsize= (6,6))
                 ax = fig.add_subplot(1, 1, 1)
@@ -234,7 +207,7 @@ class WFimage:
 
     def waterfallMap(self, lineCut = [[0, 0], [1, 1]], stepSize =1, plotTrace = False, localmin = False, flipped = False):
         
-            theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
+            theLine, nnList = lineCutGen(lineCut = lineCut, stepSize = stepSize)
             if flipped:
                 theLine = theLine[::-1]
             if plotTrace:
@@ -450,7 +423,7 @@ class WFimage:
                     chiSq = 1
                 return pOpt, pCov, chiSq
 
-    def multiESRfit(self, xlist, ylist, max_peak = 4, epsy = epslion_y, initGuess = None):
+    def multiESRfit(self, xlist, ylist, max_peak = 4, epsy = epslion_y, initGuess = None, lineFit = False):
         if not self.isNorm: #Added by Esther 20230524
             self.norm()
         if not self.binned:
@@ -463,8 +436,15 @@ class WFimage:
         self.multix = xlist
         self.multiy = ylist
         guessFreqs = initGuess
-        for x in self.multix:
-            for y in self.multiy:
+        if lineFit:
+           theloopList = zip(xlist, ylist)
+           totalLen = len(xlist)
+        else:
+            theloopList = itertools.product(xlist, ylist)
+            totalLen = len(xlist)*len(ylist)
+
+        flag = 0
+        for (x,y) in theloopList:
                 if initGuess is not None:
                     try:
                         pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, epsy = epsy, initGuess=guessFreqs)
@@ -499,7 +479,12 @@ class WFimage:
                 self.covList[(x, y)] = pCov
                 self.sqList[(x, y)] = chiSq
                 self.ckList[(x, y)] = self.FitCheck
-            print("{}-th row has completed".format(x))
+
+                ## counting the progress
+                flag += 1
+                pp = int(flag/totalLen*100)
+                if pp%5 == 0:
+                    print("{} percent has completed".format(pp))
 
         self.isMultfit = True
     
@@ -872,6 +857,7 @@ class WFimage:
                 return 0, 0
         else:
             print("Need to operate multiesrfit first!!")
+            return -99,-99
 
     def theWidth(self, realx, realy):
         if self.isMultfit:
@@ -936,7 +922,7 @@ class WFimage:
 
     def DElineplot(self, lineCut = [[0, 0], [1, 1]], stepSize =1, plotTrace = False, plotD = False, plotE = False):
         if self.isMultfit:
-            theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
+            theLine, nnList = lineCutGen(lineCut = lineCut, stepSize = stepSize)
             if plotTrace:
                 fig = plt.figure(num = 1, clear = True, figsize= (6,6))
                 ax = fig.add_subplot(1, 1, 1)
@@ -974,7 +960,7 @@ class WFimage:
 
     def DEwidthplot(self, lineCut = [[0, 0], [1, 1]], stepSize =1, plotTrace = False):
         if self.isMultfit:
-            theLine, nnList = self.lineCutGen(lineCut = lineCut, stepSize = stepSize)
+            theLine, nnList = lineCutGen(lineCut = lineCut, stepSize = stepSize)
             if plotTrace:
                 fig = plt.figure(num = 1, clear = True, figsize= (6,6))
                 ax = fig.add_subplot(1, 1, 1)
@@ -1209,7 +1195,7 @@ class multiWFImage:
         
         return stackImage
 
-    def roi(self, xlow=0, ylow=0, xrange=None, yrange=None, plot = False):
+    def roi(self, xlow=0, ylow=0, xrange=None, yrange=None, plot = False, lineCut = False):
         self.xlow=xlow
         self.ylow=ylow
         totalxr=len(self.WFList[0].dat[:][0][0])
@@ -1220,14 +1206,19 @@ class multiWFImage:
         else:
             self.xhigh=xlow+xrange
             self.yhigh=ylow+yrange
-        self.xr=np.arange(self.xlow,self.xhigh,1)
-        self.yr=np.arange(self.ylow,self.yhigh,1)
-        self.xyArray = np.array(list(itertools.product(self.xr, self.yr)))
+        if lineCut:
+            theLine, _ = lineCutGen(lineCut = [[xlow, ylow], [self.xhigh, self.yhigh]], stepSize = 2)
+            [self.xr, self.yr] = theLine.transpose()
+            self.xyArray = theLine
+        else:
+            self.xr=np.arange(self.xlow,self.xhigh,1)
+            self.yr=np.arange(self.ylow,self.yhigh,1)
+            self.xyArray = np.array(list(itertools.product(self.xr, self.yr)))
         self.rroi= [[self.xlow,self.xhigh],[self.ylow,self.yhigh]]
         self.isROI = True
         self.mgSize = 3
 
-        if len(self.xr) > 1 and len(self.yr) > 1:
+        if len(self.xr) > 1 and len(self.yr) > 1 and lineCut == False:
             self.roiShape = 'square'
         elif len(self.xr) == 1 and len(self.yr) == 1:
             self.roiShape = 'point'
@@ -1359,15 +1350,15 @@ class multiWFImage:
 
 
 
-    def roiMultiESRfit(self,max_peak = 4, initGuess = None):
+    def roiMultiESRfit(self,max_peak = 4, initGuess = None, lineFit = False):
         if self.isROI:
             for i in range(self.Nfile):
                 tmpWF = self.WFList[i]
                 print("Fitting {}th WFImage...".format(i))
                 if initGuess is None:
-                    tmpWF.multiESRfit(self.xr, self.yr, max_peak = max_peak)
+                    tmpWF.multiESRfit(self.xr, self.yr, max_peak = max_peak, lineFit = lineFit)
                 else:
-                    tmpWF.multiESRfit(self.xr, self.yr, max_peak = max_peak, initGuess = initGuess[i])
+                    tmpWF.multiESRfit(self.xr, self.yr, max_peak = max_peak, initGuess = initGuess[i], lineFit = lineFit)
             
             print("ROI fitting completed!")
             self.isROIfit = True
@@ -1501,3 +1492,34 @@ class multiWFImage:
 
         else:
             print("please generate DE map and input the parameter list also make sure the roi is a line")
+
+
+
+#########################################################################
+## support functions
+#########################################################################
+def lineCutGen(lineCut = [[0, 0], [1, 1]], stepSize =1):
+    ## generate lineCut
+    dx = lineCut[1][0]-lineCut[0][0]
+    dy = lineCut[1][1]-lineCut[0][1]
+    if dx > dy:
+        nn = dx
+        isX = True
+        slope = dy/dx
+    else:
+        nn = dy
+        isX = False
+        slope = dx/dy
+
+    nnList = np.arange(0, nn, stepSize)
+    theLine = np.zeros((len(nnList),2), dtype=int)
+    flag = 0
+    for i in nnList:
+        if isX:
+            pts = [lineCut[0][0] + i, int(round(lineCut[0][1] + i*slope))]
+        else:
+            pts = [int(round(lineCut[0][0] + i*slope)), lineCut[0][1] + i]
+            
+        theLine[flag] = pts
+        flag += 1
+    return theLine, nnList

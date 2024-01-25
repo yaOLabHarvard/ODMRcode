@@ -859,6 +859,23 @@ class WFimage:
             print("Need to operate multiesrfit first!!")
             return -99,-99
 
+    def customDandE(self, realx, realy, peakNumber = [0,-1]):
+        if self.isMultfit:
+            theopt = self.optList[(realx, realy)]
+            
+            if theopt is not None and len(theopt[0::3][1:])>=1:
+                peakFreqs = theopt[0::3][1:]
+                Fmax = peakFreqs[peakNumber[0]]
+                Fmin = peakFreqs[peakNumber[-1]]
+                DD = (Fmin + Fmax)/2
+                EE = np.abs((Fmax - Fmin)/2)
+                return DD,EE
+            else:
+                return 0, 0
+        else:
+            print("Need to operate multiesrfit first!!")
+            return -99,-99
+
     def theWidth(self, realx, realy):
         if self.isMultfit:
             theopt = self.optList[(realx, realy)]

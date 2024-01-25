@@ -14,7 +14,7 @@ bssco3bfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_B/'
 bssco320gpabfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_20GPa_B/'
 bssco320gpatfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_20GPa_T/'
 fileName = 'bscco3_100K-1p6a'
-
+plt.style.use('norm2')
 
 
 #%%

@@ -21,7 +21,7 @@ import os
 gamma=2.8025e-3 #GHz/G
 
 ## fitting parameters
-epslion_y = 1e-3
+epslion_y = .5e-3
 peak_width = 0.015 ## GHz
 max_repeat = 1000
 
@@ -90,7 +90,7 @@ class WFimage:
 
 
     def norm(self):
-        self.dat = mf.normalize_widefield(self.dat, numpoints= 10)
+        self.dat = mf.normalize_widefield(self.dat, numpoints= 3, from_back=False)
         self.isNorm = True
 
     def sliceImage(self, Nslice = 3):
@@ -363,7 +363,7 @@ class WFimage:
                 exit(0)
             else:
                 yVals = self.pointESR(x, y)
-                if 1 - yVals.min() < epsy:
+                if yVals.max() - yVals.min() < epsy:
                     print("data is too flat! skipping..")
                     return None, None, None
                 # print(yVals)
@@ -864,9 +864,14 @@ class WFimage:
             theopt = self.optList[(realx, realy)]
             
             if theopt is not None and len(theopt[0::3][1:])>=1:
-                peakFreqs = theopt[0::3][1:]
-                Fmax = peakFreqs[peakNumber[0]]
-                Fmin = peakFreqs[peakNumber[-1]]
+                peakFreqs = np.sort(theopt[0::3][1:])
+                try:
+                    Fmax = peakFreqs[int(peakNumber[0])]
+                    Fmin = peakFreqs[int(peakNumber[-1])]
+                except IndexError:
+                    print("The requested d e does not exist! Current peak number: {}".format(len(peakFreqs)))
+                    Fmax = -99
+                    Fmin = -99
                 DD = (Fmin + Fmax)/2
                 EE = np.abs((Fmax - Fmin)/2)
                 return DD,EE
@@ -891,7 +896,7 @@ class WFimage:
             print("Need to operate multiesrfit first!!")
 
 
-    def DEmap(self, plot = False):
+    def DEmap(self, plot = False, iscustom = False):
         if self.isMultfit:
             self.Dmap = np.zeros((self.X, self.Y))
             self.Emap = np.ones((self.X, self.Y))
@@ -899,9 +904,14 @@ class WFimage:
             self.Dmin = 1e6
             self.Emax = 0
             self.Emin = 1e6
+            if iscustom:
+                theList = np.fromstring(input('Enter peak numbers (for example: 0, 3):'),sep=',')
             for x in self.multix:
                 for y in self.multiy:
-                    D, E =  self.DandE(x, y)
+                    if iscustom:
+                        D, E =  self.customDandE(x, y, peakNumber=theList)
+                    else:
+                        D, E =  self.DandE(x, y)
                     if D:
                         if D > self.Dmax:
                             self.Dmax = D
@@ -1421,7 +1431,7 @@ class multiWFImage:
             else:
                 fig = plt.figure(num = 1, clear = True, figsize= (15,6))
                 ax = fig.add_subplot(1, 2, 1)
-                dmap = ax.imshow(self.roiDmap[:, :, refN], vmax = 3, vmin = 2.8)
+                dmap = ax.imshow(self.roiDmap[:, :, refN], vmax = 3.3, vmin = 2.8)
                 if withroi:
                     ax.add_patch(Rectangle((self.ylow, self.xlow), self.yhigh-self.ylow+self.mgSize, self.xhigh-self.xlow+self.mgSize, fill=None, alpha = 1))
                 ax.title.set_text("D map (GHz)")

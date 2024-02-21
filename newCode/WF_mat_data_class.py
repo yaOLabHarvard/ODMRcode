@@ -322,19 +322,19 @@ class WFimage:
             # peakPos, _ = find_peaks(1 - yVals, prominence=0.1)
             # peakPos, _ = find_peaks(1 - yVals, prominence=(0.001,0.2))
             # if min(yVals)>0.992:
-            if min(yVals)>0.996:
+            if min(yVals)>0.998:
                 # print('super low prom')
                 # print('0.0008')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.1))
             # elif min(yVals)<0.997 and min(yVals)>0.996:
             #     print('med-low prom')
             #     peakPos, _ = find_peaks(1 - yVals, prominence=(0.0014,0.3))
-            elif min(yVals)<0.996 and min(yVals)>0.994:
+            elif min(yVals)<0.998 and min(yVals)>0.995:
                 # print('low prom')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0008,0.3))
-            elif min(yVals)<0.994 and min(yVals)>0.990:
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.00075,0.2))
+            elif min(yVals)<0.995 and min(yVals)>0.990:
                 # print('med prom')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0008,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0075,0.3))
             elif min(yVals)<0.990 and min(yVals)>0.975:
                 # print('high prom')
                 peakPos, _ = find_peaks(1 - yVals, prominence=(0.001,0.3))

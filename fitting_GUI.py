@@ -16,8 +16,9 @@ from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDateTimeEdit,
         QSlider, QSpinBox, QStyleFactory, QTableWidget, QTabWidget, QTextEdit,
         QVBoxLayout, QWidget)
 
-from NV_ESR_fit_V1 import NV100_fitting_function ## the fitting functions
+from NV_ESR_fit_V1 import NV100_fitting_function, NV111_fitting_function ## the fitting functions
 from NV_ESR_fit_V1 import NVFit, curve_style ## import the global variable that controls the fitting peak functions
+fitNVort = 111
 
 
 
@@ -32,7 +33,10 @@ class MainWindow(QDialog):
         # initialize variables
         self.PNum = len(NVFit.PGuess)
         self.isCheckEd = np.zeros(self.PNum)
-        self.gmodel = Model(NV100_fitting_function)
+        if fitNVort == 100:
+            self.gmodel = Model(NV100_fitting_function)
+        else:
+            self.gmodel = Model(NV111_fitting_function)
         self.params = None
         self.fitResult = None
         self.datax=[]
@@ -202,10 +206,16 @@ class MainWindow(QDialog):
                     if line[0]<'A' and line[0]>'*':
                         ## Turning the list of strings into an np array
                         nline = np.asarray(line)
-                        nline = nline.astype(float)
+                        data = []
+                        for item in nline:
+                            try:
+                                item = float(item)
+                            except ValueError:
+                                continue
+                            data.append(item)
                         ## Writing the parts of the line to x and y arrays
-                        self.datax.append(nline[0])
-                        self.datay.append(nline[1])
+                        self.datax.append(data[0]*1e9)
+                        self.datay.append(data[1])
             file.close()
 
         # Normalizing the baseline of the ESR Data to 1
@@ -269,8 +279,10 @@ class MainWindow(QDialog):
         for i in range(self.PNum):
             #print(float(self.lineCol[i].text()))
             NVFit.PGuess[i] = float(self.lineCol[i].text())
-        
-        NVFit.NV100_exact_Bonly()
+        if fitNVort == 100:
+            NVFit.NV100_exact_Bonly()
+        else:
+            NVFit.NV111_exact_Bonly()
         ylist = NVFit.Plot_guess_fit(self.xlist, 'l')
         self.plotInit = 1
         self.updateCanvas(self.xlist, ylist)

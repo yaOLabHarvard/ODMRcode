@@ -9,16 +9,17 @@ labqfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_Q/'
 labfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/igor/'
 testpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/'
 txtpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/esr_igor/'
-bssco3Tfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_T/'
-bssco3bfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_B/'
-bssco320gpabfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_20GPa_B/'
-bssco320gpatfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_20GPa_T/'
-bscco415gpatfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/bscco4/15gpa/vsT/'
-bscco415gpabfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/bscco4/15gpa/vsB_40dbm/'
-bscco415gpabzfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/bscco4/15gpa/110K_vsBz/'
-bscco415gpabxfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/bscco4/15gpa/vsBx/'
-bscco420gpapfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/bscco4/20gpa/rtstrain/'
-bscco420gpatfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/bscco4/20gpa/50K/'
+# bssco3Tfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_T/'
+# bssco3bfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_B/'
+# bssco320gpabfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_20GPa_B/'
+# bssco320gpatfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_bscco3_20GPa_T/'
+# bscco415gpatfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/bscco4/15gpa/vsT/'
+# bscco415gpabfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/bscco4/15gpa/vsB_40dbm/'
+# bscco415gpabzfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/bscco4/15gpa/110K_vsBz/'
+# bscco415gpabxfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/bscco4/15gpa/vsBx/'
+# bscco420gpapfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/bscco4/20gpa/rtstrain/'
+# bscco420gpatfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/bscco4/20gpa/50K/'
+ni327s1rtxcalipath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/ni327_s1/rt/xcali/'
 fileName = 'bscco3_100K-1p6a'
 plt.style.use('norm2')
 
@@ -26,8 +27,8 @@ plt.style.use('norm2')
 #%%
 ######################################
 ## load multiple files
-MFWF=wf.multiWFImage(bscco415gpabxfolderpath)
-MFWF.setFileParameters(parameters=[0,1,2,3])
+MFWF=wf.multiWFImage(ni327s1rtxcalipath)
+MFWF.setFileParameters(parameters=[3,4,5])
 ## parameters=[0, 0.4,0.8,1.2]
 ## parameters=[100, 103, 113, 128, 149, 158, 160, 160, 61, 70, 80, 90, 50]
 MFWF.test()
@@ -82,7 +83,7 @@ testWF.myFavoriatePlot(x=90,y=90)
 # %%
 ######################################
 ## check a series of plots at the same point using MFWF
-MFWF.myFavoriatePlot(x=100,y=100)
+MFWF.myFavoriatePlot(x=70,y=80)
 ######################################
 # %%
 ######################################
@@ -159,14 +160,14 @@ testWF.multiESRfitManualCorrection(isResume = True)
 #%%
 ######################################
 ## test for single pt esr by mfp or waterfall plots
-testWF = MFWF.WFList[3]
+testWF = MFWF.WFList[2]
 # px=80
 # py=90
 # testWF.myFavoriatePlot(px, py, maxPeak = 6)
 
 # ycut = 100
 # linecut = [[0, ycut],[176, ycut]]
-xcut = 120
+xcut = 100
 linecut = [[xcut, 3],[xcut, 173]]
 # linecut = [[82,73],[117,85]]
 # testWF.waterfallPlot(lineCut = linecut, stepSize = 8,  spacing = 0.005, plotTrace = True,plotFit=False)
@@ -327,10 +328,10 @@ np.savetxt(labfolderpath+filename, exportData)
 # %%
 ######################################
 # save raw esr data with series of paras
-xx = 140
-yy = 140
+xx = 70
+yy = 80
 labfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/igor/'
-filename = 'bscco4-stress-x{}y{}.txt'.format(xx,yy)
+filename = 'ni327_s1_0gpa_rt_xcali-x{}y{}.txt'.format(xx,yy)
 
 with open(labfolderpath+filename, 'a+') as file:
 

@@ -118,6 +118,31 @@ class NVfit:
             self.MWFreq[2*i] = eigval[1] - eigval[0]
             self.MWFreq[2*i + 1] = eigval[2] - eigval[0]
 
+    def NV111_exact_Bonly(self):
+        ## Due to symmetry, the only parameter matters is the angle between NV axis and magnetic field. This is true
+        ## when all the terms in the Hamilitonian are axial
+
+            
+        ## define magnetic field direction
+        theta = self.PGuess[4]*np.pi/180
+        phi = self.PGuess[3]*np.pi/180
+        Bdir = np.array([np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), np.cos(theta)])
+        ## define angle between B and NV axis
+        alpha=np.zeros(4)
+        sinth = 2/3*np.sqrt(2)
+        alpha[0] = np.arccos(Bdir.dot([0,0,1]))
+        alpha[1] = np.arccos(Bdir.dot([sinth, 0,-1/3]))
+        alpha[2] = np.arccos(Bdir.dot([-sinth/2, sinth/2*np.sqrt(3),-1/3]))
+        alpha[3] = np.arccos(Bdir.dot([-sinth/2, -sinth/2*np.sqrt(3),-1/3]))
+        #print(alpha)
+        ## Calculate frequency
+        for i in range(4):
+            HH = self.PGuess[0]*Sz.dot(Sz)+self.gamma*self.PGuess[2]*(np.cos(alpha[i])*Sz+np.sin(alpha[i])*Sx)
+            eigval = np.sort(np.real(np.linalg.eigvals(HH)))
+            self.MWFreq[2*i] = eigval[1] - eigval[0]
+            self.MWFreq[2*i + 1] = eigval[2] - eigval[0]
+
+
     def Plot_guess_fit(self, xVals, style = 'l'):
         eta = 0.5
         function = np.ones(len(xVals))*self.PGuess[6]
@@ -127,9 +152,6 @@ class NVfit:
             function += funcMap[style](xVals, self.PGuess[num], self.PGuess[5], self.MWFreq[i], eta)
         #print(function)
         return  function
-
-
-NVFit = NVfit()
 
 def NV100_fitting_function(xVals, DD, EE, BB, phi, theta, width, offset, A1, A2, A3, A4):
     
@@ -148,6 +170,24 @@ def NV100_fitting_function(xVals, DD, EE, BB, phi, theta, width, offset, A1, A2,
     NVFit.NV100_exact_Bonly()
 
     return NVFit.Plot_guess_fit(xVals, curve_style)
+
+def NV111_fitting_function(xVals, DD, EE, BB, phi, theta, width, offset, A1, A2, A3, A4):
+    
+    NVFit.PGuess[0] = DD
+    NVFit.PGuess[1] = EE
+    NVFit.PGuess[2] = BB
+    NVFit.PGuess[3] = phi
+    NVFit.PGuess[4] = theta
+    NVFit.PGuess[5] = width
+    NVFit.PGuess[6] = offset
+    NVFit.PGuess[7] = A1
+    NVFit.PGuess[8] = A2
+    NVFit.PGuess[9] = A3
+    NVFit.PGuess[10] = A4
+    print(A1)
+    NVFit.NV111_exact_Bonly()
+
+    return NVFit.Plot_guess_fit(xVals, curve_style)
     
             
-
+NVFit = NVfit()

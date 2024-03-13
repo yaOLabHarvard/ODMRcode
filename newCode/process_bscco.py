@@ -12,16 +12,17 @@ labqfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_Q/'
 labfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/igor/'
 # figpath='D:/work/py/attodry_lightfield/ODMRcode/newCode/picture/'
 # picklepath='D:/work/py/attodry_lightfield/ODMRcode/newCode/pickle/'
-testpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/'
-txtpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/esr_igor/'
-fileName = 'zfc-150K-2A'
-
-
+#testpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/'
+#txtpath = 'F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/esr_igor/'
+#fileName = 'zfc-150K-2A'
+ni3279p7 = 'D:/work/Ni327/s1/9p7gpa/'
+ni32714p2 = 'D:/work/Ni327/s1/14p2gpa/'
+plt.style.use('norm2')
 #%%
 ## load multiple files
-MFWF=wf.multiWFImage(labbfolderpath)
-MFWF.setFileParameters(parameters=[0,0.1,0.25,0.5,1,2,7,5,-1])
-##MFWF.test()
+MFWF=wf.multiWFImage(ni3279p7)
+MFWF.setFileParameters(parameters=[0,1])
+MFWF.test()
 
 # %%
 MFWF.dumpFitResult()
@@ -32,6 +33,18 @@ MFWF.loadFitResult(refreshChecks = True)
 ## do manual image correlation
 MFWF.manualAlign(nslice = 3, referN = 0)
 
+# %%
+## check a single file out of MFWF
+testWF = MFWF.WFList[1]
+testWF.norm()
+testWF.myFavoriatePlot(x=90,y=100)
+######################################
+
+# %%
+######################################
+## check a series of plots at the same point using MFWF
+MFWF.myFavoriatePlot(x=120,y=120)
+######################################
 #%%
 print(MFWF.imgShift)
 # %%
@@ -41,28 +54,29 @@ MFWF.imageAlign(nslice = 3, referN = 0, rr=5, debug = True)
 
 # %%
 ## pick a roi and do multi esr for all images
-MFWF.roi(xlow=20, ylow=82, xrange=100, yrange=1, plot=True)
-MFWF.roiMultiESRfit()
+MFWF.roi(xlow=10, ylow=10, xrange=150, yrange=150, plot=True)
+MFWF.roiMultiESRfit(max_peak = 6)
 
 # %%
 ## create multiple de maps and plot them
+MFWF.roi(xlow=10, ylow=10, xrange=150, yrange=150, plot=True)
 MFWF.generateroiDEmap()
 MFWF.plotroiDEmap(withroi=True)
 
 
 # %%
 # This block tests manual correction
-testWF = MFWF.WFList[5]
-currentE = 1e-5
-MFWF.roi(xlow=20, ylow=82, xrange=100, yrange=1, plot=True)
+testWF = MFWF.WFList[1]
+currentE = 0
+MFWF.roi(xlow=100, ylow=90, xrange=50, yrange=60, plot=True)
 #MFWF.roi(xlow=55, ylow=82, xrange=20, yrange=1, plot=True)
-testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = currentE)
-testWF.multiESRfitManualCorrection(isResume = False)
+testWF.fitErrordetection(MFWF.xyArray, epschi = currentE)
+##testWF.multiESRfitManualCorrection(isResume = False)
 # %%
 ## 2.728,2.773,2.876,2.901,2.991,3.016,3.07,3.076
 ## 2.875,2.91,2.94,2.96, 2.97
 ##This block tests auto correction
-guessfound = [2.91,2.93]
+guessfound = [3.12,3.07,2.97,2.88]
 testWF.multiESRfitAutoCorrection(guessfound, forced = False, isResume = True)
 #%%
 ##testWF.fitErrordetection(MFWF.xr, MFWF.yr, epschi = currentE)
@@ -131,6 +145,34 @@ plt.colorbar(img, cax=cax)
 plt.savefig(figpath+"BHmap"+str(currentT)+"K.png")
 plt.show()
 plt.close()
+#%%
+## DE plot for one of MFWF
+figpath = "D:/work/Ni327/s1/9p7gpa/"
+ii = 0
+testWF = MFWF.WFList[ii]
+MFWF.roi(xlow=10, ylow=10, xrange=150, yrange=150, plot=True)
+testWF.multix = MFWF.xr
+testWF.multiy = MFWF.yr
+DD,EE=testWF.DEmap(plot=False)
+fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15,6))
+img1 = ax[0].imshow(DD, vmax = 3.05, vmin = 2.85)
+ax[0].title.set_text("D map (GHz)")
+divider = make_axes_locatable(ax[0])
+cax = divider.append_axes("right", size="5%", pad=0.05)
+plt.colorbar(img1, cax=cax)
+
+
+img2 = ax[1].imshow(EE, vmax = 0.2, vmin = 0)
+ax[1].title.set_text("E map (GHz)")
+divider = make_axes_locatable(ax[1])
+cax = divider.append_axes("right", size="5%", pad=0.05)
+plt.colorbar(img2, cax=cax)
+
+plt.savefig(figpath+"data" + str(ii) + ".png")
+plt.show()
+plt.close()
+######################################
+
 # %%
 ## D and E line plot for single image
 linecut = [[70, 10],[70, 140]]

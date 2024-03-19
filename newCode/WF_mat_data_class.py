@@ -228,7 +228,7 @@ class WFimage:
                 theimage[i] = self.pointESR(theLine[i][0], theLine[i][1])
             fig = plt.figure(num = 1, clear = True, figsize= (12,6))
             ax = fig.add_subplot(1, 1, 1)
-            themap = ax.imshow(theimage, extent=[self.fVals[0], self.fVals[-1], 0, len(nnList)], aspect='auto')
+            themap = ax.imshow(theimage, extent=[self.fVals[0], self.fVals[-1], 0, len(nnList)], aspect='auto', cmap='rainbow')
             divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(themap, cax=cax)
@@ -334,14 +334,14 @@ class WFimage:
                 peakPos, _ = find_peaks(1 - yVals, prominence=(0.00075,0.2))
             elif min(yVals)<0.995 and min(yVals)>0.990:
                 # print('med prom')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.0075,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.001,0.3))
             elif min(yVals)<0.990 and min(yVals)>0.975:
                 # print('high prom')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.001,0.3))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.005,0.3))
             # # elif min(yVals)<0.992 and min(yVals)>0.985:
             else:
                 # print('ultra high prom')
-                peakPos, _ = find_peaks(1 - yVals, prominence=(0.002,0.4))
+                peakPos, _ = find_peaks(1 - yVals, prominence=(0.01,0.4))
         peak_values = yVals[peakPos]
         posPeaks = np.array([i for i in peak_values if i > 0])
         #   Sort the peaks by amplitude (highest to lowest)
@@ -1140,9 +1140,9 @@ class multiWFImage:
         fig = plt.figure(num = 1, clear = True, figsize= (6,6*self.Nfile))
         for i in range(self.Nfile):
             ax = fig.add_subplot(self.Nfile, 1, i+1)
-            tmp = self.WFList[i].dat
-            testimg = tmp[:,:,3].copy()
-            img = ax.imshow(testimg)
+            tmpImg = self.WFList[i].originalDat[:,:,3].copy()
+            tmpImg = self.normImg(tmpImg)
+            img = ax.imshow(tmpImg)
             divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(img, cax=cax)
@@ -1203,11 +1203,11 @@ class multiWFImage:
             fileLen = len(imageList)
 
         for i in range(fileLen):
-            tmpDat = self.WFList[imageList[i]].dat.copy()
+            tmpDat = self.WFList[i].originalDat[:,:,Nslice].copy()
             if i == 0:
-                stackImage = tmpDat[:,:, Nslice]
+                stackImage = self.normImg(tmpDat)
             else:
-                stackImage += tmpDat[:,:, Nslice]
+                stackImage += self.normImg(tmpDat)
         stackImage = stackImage/self.Nfile 
         if plot:
             fig = plt.figure(num = 1, clear = True, figsize= (6,6))
@@ -1269,19 +1269,19 @@ class multiWFImage:
         img = np.array(img)
         maxx = img.max()
         minn = img.min()
-        return (2*img - maxx - minn)/(maxx - minn)
+        return (img - minn)/(maxx - minn)
 
     def imageAlign(self, nslice = 3, referN = 0, rr = 20, debug = False):
         if self.isROI:
             beforeAlignImg = self.imageStack(Nslice = nslice)
-            tmpDat = self.WFList[referN].dat[:,:,nslice].copy()
+            tmpDat = self.WFList[referN].originalDat[:,:,nslice].copy()
             tmpDat = self.normImg(tmpDat)
             smallImg = tmpDat[self.rroi[0][0]:self.rroi[0][1], self.rroi[1][0]:self.rroi[1][1]].copy()
             shiftXY = []
             for i in range(self.Nfile):
                 print(self.fileDir[i] + " file is processing...")
                 tmpWF = self.WFList[i]
-                tmp = tmpWF.dat[:,:, nslice].copy()
+                tmp = tmpWF.originalDat[:,:, nslice].copy()
                 bigImg = self.normImg(tmp)
                 [tmpx, tmpy] = tmpWF.imgCorr(bigImg, smallImg, self.rroi, plot = debug, rr = rr)
                 print("WF {}: x is found at {} px; y is found at {} px".format(i , tmpx, tmpy))

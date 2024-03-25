@@ -3,6 +3,7 @@ import WF_mat_data_class as wf
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib import pyplot as plt
+%matplotlib qt
 # labtfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_T/'
 labbfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_B/'
 labqfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/data_Q/'
@@ -24,8 +25,8 @@ ni327s1rtzcalipath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/ni327_s1/rt/zcali
 ni327s19p7gpa103Kpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/ni327_s1/9p7/103K/'
 ni327s114p2gpavsTpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/ni327_s1/14p2/vsT/'
 ni327s116p5gpavsTpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/ni327_s1/16p5/vsT/'
-ni327s116p5gpavsBpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/ni327_s1/16p5/vsB/'
-fileName = 'bscco3_100K-1p6a'
+ni327s116p5gpavsBpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/ni327_s1/16p5/vsB-19K_new/'
+fileName = '327_s1_16p5gpa_19K_mwn36_4p5A_new'
 plt.style.use('norm2')
 
 
@@ -33,7 +34,7 @@ plt.style.use('norm2')
 ######################################
 ## load multiple files
 MFWF=wf.multiWFImage(ni327s116p5gpavsBpath)
-MFWF.setFileParameters(parameters=[0,1,2,3,4])
+MFWF.setFileParameters(parameters=[0,1,2,3,4,5,6,7,8])
 ## parameters=[0, 0.4,0.8,1.2]
 ## parameters=[100, 103, 113, 128, 149, 158, 160, 160, 61, 70, 80, 90, 50]
 MFWF.test()
@@ -42,8 +43,14 @@ MFWF.test()
 #%%
 ######################################
 ## load single file
-testWF=wf.WFimage(bssco3Tfolderpath + fileName)
+testWF=wf.WFimage(ni327s116p5gpavsBpath + fileName)
 testWF.norm()
+######################################
+
+#%%
+######################################
+## check the data
+testWF.myFavoriatePlotMousepick()
 ######################################
 
 

@@ -45,6 +45,9 @@ class WFimage:
         self.binned=False
         self.resumeX = 0
         self.FitCheck = 0
+        self.presaveFig = None
+        self.plotXx = 0
+        self.plotYy = 0
         ## -2 means cannot fit error
         ## -1 means  bad fit occurs -- either positive amp or really broad (> 10x)
         ## 0 means default
@@ -165,6 +168,79 @@ class WFimage:
                 ax2.plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params), '-')
 
         plt.show()
+
+    def onpick(self, event):
+        self.plotXx = int(event.xdata) 
+        self.plotYy = int(event.ydata)
+        ## x and y s are flipped in imshow
+        print("Picked x {}; y {}".format(self.plotYy, self.plotXx))
+        plt.clf()
+        self.myFavoriatePlotMousepick()
+        plt.show()
+        plt.draw()
+
+    def myFavoriatePlotMousepick(self, maxPeak = 6, withFit = True, fitParas = None, isChoosefig = False):
+        if not self.isNorm:
+            self.norm()
+        if not self.binned:
+            self.binning()
+        fig = plt.figure(num = 1, clear = True, figsize= (15,6))
+        ax1 = fig.add_subplot(1, 2, 1)
+        ## plot the image
+        # IMGplot = ax[0].imshow(self.originalDat[:,:,3].copy())
+        if isChoosefig and self.presaveFig is not None:
+            thefig = self.presaveFig
+        else:
+            thefig = self.originalDat[:,:,3].copy()
+
+        IMGplot = ax1.imshow(thefig)
+        divider = make_axes_locatable(ax1)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        plt.colorbar(IMGplot, cax=cax)
+    
+        ## add the cross
+        ax1.hlines(y = self.plotYy, xmin=self.plotXx-10, xmax=self.plotXx+10, linewidth=1, color='r')
+        ax1.vlines(x = self.plotXx, ymin=self.plotYy-10, ymax=self.plotYy+10, linewidth=1, color='r')
+
+        ## plot single ESR
+        ax2 = fig.add_subplot(1, 2, 2)
+        spESR = self.pointESR(self.plotYy, self.plotXx)
+        ax2.plot(self.fVals, spESR, '-')
+        # ax2.set_xlim()
+        # ax2.set_ylim(0.996,1.002)
+        if withFit:
+            if fitParas is None:
+                peaks = self.singleESRpeakfind(self.plotYy, self.plotXx, max_peak = maxPeak, method = 'pro')
+                ax2.plot(self.fVals[peaks], spESR[peaks], 'x')
+                print("Peaks found by Autofind: "+str(self.fVals[peaks]))
+                print("Peak indices found by Autofind: "+ str(peaks))
+
+                try:
+                    popt, pcov, chisq = self.singleESRfit(self.plotYy, self.plotXx, max_peak = maxPeak)
+                    print("the Chi square is {}".format(chisq))
+                except ValueError:
+                    print("cannot find singleesr")
+                    popt = None
+            else:
+                [popt, pcov, chisq] = fitParas
+
+            if popt is not None:
+                npeak = int(np.floor(len(popt)/3))
+            elif fitParas is None:
+                npeak = len(peaks)
+                popt = mf.generate_pinit(self.fVals[peaks], spESR[peaks])
+            else:
+                npeak = 0
+
+            for i in range(npeak):
+                params = popt[1+3*i:4+3*i]
+                print("peak number {}; amp {:.3e}; width {:.3e}; freq {:.3e};".format(i, popt[3*i+1], popt[3*i+2], popt[3*i+3]))
+                ax2.plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params), '-')
+
+        fig.canvas.mpl_connect('button_press_event', self.onpick)
+        plt.show()
+        plt.draw()
+
 
     def waterfallPlot(self, lineCut = [[0, 0], [1, 1]], stepSize =1,  spacing = 0.01, plotTrace = False, plotFit = False):
         

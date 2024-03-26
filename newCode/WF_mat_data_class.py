@@ -42,6 +42,7 @@ class WFimage:
         self.isMask = False
         self.isNpeak = False
         self.isSeeded = False
+        self.isChoosefig = False
         self.binned=False
         self.resumeX = 0
         self.FitCheck = 0
@@ -116,7 +117,7 @@ class WFimage:
 
         self.isMask = True
 
-    def myFavoriatePlot(self, x = 0, y = 0, maxPeak = 6, withFit = True, fitParas = None):
+    def myFavoriatePlot(self, x = 0, y = 0, maxPeak = 6, withFit = True, fitParas = None, isChoosefig = False):
         if not self.isNorm:
             self.norm()
         if not self.binned:
@@ -124,8 +125,11 @@ class WFimage:
         fig = plt.figure(num = 1, clear = True, figsize= (15,6))
         ax1 = fig.add_subplot(1, 2, 1)
         ## plot the image
-        # IMGplot = ax[0].imshow(self.originalDat[:,:,3].copy())
-        IMGplot = ax1.imshow(self.dat[:,:,3])
+        if isChoosefig and self.presaveFig is not None:
+            thefig = self.presaveFig
+        else:
+            thefig = self.originalDat[:,:,3].copy()
+        IMGplot = ax1.imshow(thefig)
         ax1.add_patch(Rectangle((y - 2, x -2), 4, 4, fill=None, alpha = 1))
         divider = make_axes_locatable(ax1)
         cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -175,7 +179,7 @@ class WFimage:
         ## x and y s are flipped in imshow
         print("Picked x {}; y {}".format(self.plotYy, self.plotXx))
         plt.clf()
-        self.myFavoriatePlotMousepick()
+        self.myFavoriatePlotMousepick(isChoosefig=self.isChoosefig)
         plt.show()
         plt.draw()
 
@@ -190,10 +194,11 @@ class WFimage:
         # IMGplot = ax[0].imshow(self.originalDat[:,:,3].copy())
         if isChoosefig and self.presaveFig is not None:
             thefig = self.presaveFig
+            self.isChoosefig = True
         else:
             thefig = self.originalDat[:,:,3].copy()
-
-        IMGplot = ax1.imshow(thefig)
+        midscale = 1 ## by default now we choose B/H map
+        IMGplot = ax1.imshow(thefig, vmax = midscale+0.2, vmin = midscale-0.2)
         divider = make_axes_locatable(ax1)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(IMGplot, cax=cax)
@@ -1176,7 +1181,7 @@ class multiWFImage:
     def dumpFitResult(self, picklepath = None):
         if self.isROIfit or self.ROIfitloaded:
             for i in range(self.Nfile):
-                tmp = [self.WFList[i].optList, self.WFList[i].sqList, self.WFList[i].ckList, self.imgShift[i]]
+                tmp = [self.WFList[i].optList, self.WFList[i].sqList, self.WFList[i].ckList, self.WFList[i].presaveFig, self.imgShift[i]]
                 filename = self.fileDir[i].split('.')[0] + '_fit.pkl'
                 if picklepath is None:
                     picklepath = self.folderPath + 'pickle/'
@@ -1197,7 +1202,7 @@ class multiWFImage:
                     os.makedirs(picklepath)
             with open(picklepath + filename, 'rb') as f:
                 tmpWF = self.WFList[i]
-                [tmpWF.optList, tmpWF.sqList, tmpWF.ckList, self.imgShift[i]] = pickle.load(f)
+                [tmpWF.optList, tmpWF.sqList, tmpWF.ckList, tmpWF.presaveFig, self.imgShift[i]] = pickle.load(f)
                 tmpWF.covList = {}
                 for k in tmpWF.ckList.keys():
                     tmpWF.covList[k] = 0

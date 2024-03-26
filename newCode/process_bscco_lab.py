@@ -34,10 +34,10 @@ plt.style.use('norm2')
 ######################################
 ## load multiple files
 MFWF=wf.multiWFImage(ni327s116p5gpavsBpath)
-MFWF.setFileParameters(parameters=[0,1,2,3,4,5,6,7,8])
+MFWF.setFileParameters(parameters=[0,1,2,3,4,5,6,7,8,9,10])
 ## parameters=[0, 0.4,0.8,1.2]
 ## parameters=[100, 103, 113, 128, 149, 158, 160, 160, 61, 70, 80, 90, 50]
-MFWF.test()
+##MFWF.test()
 ######################################
 
 #%%
@@ -50,7 +50,8 @@ testWF.norm()
 #%%
 ######################################
 ## check the data
-testWF.myFavoriatePlotMousepick()
+testWF = MFWF.WFList[-2]
+testWF.myFavoriatePlotMousepick(isChoosefig = True)
 ######################################
 
 
@@ -59,7 +60,7 @@ testWF.myFavoriatePlotMousepick()
 #%%
 ######################################
 ## add an file into the MFWF
-MFWF.addFile('327_s1_16p5gpa_101K_mwn34_3A')
+MFWF.addFile('327_s1_16p5gpa_19K_mwn36_5A_new')
 ######################################
 
 # %%
@@ -84,21 +85,21 @@ MFWF.manualAlign(nslice = 3, referN = 1)
 ######################################
 ## pick a roi and do auto image correlations
 MFWF.roi(xlow=120, ylow=35, xrange=30, yrange=30, plot=True)
-MFWF.imageAlign(nslice = 3, referN = 4, rr=5, debug = False)
+MFWF.imageAlign(nslice = 3, referN = 4, rr=5, debug = True)
 ######################################
 
 # %%
 ######################################
 ## check a single file out of MFWF
-testWF = MFWF.WFList[0]
-testWF.norm()
-testWF.myFavoriatePlot(x=108,y=97)
+testWF = MFWF.WFList[-1]
+##testWF.norm()
+testWF.myFavoriatePlot(x=100,y=54, isChoosefig = False)
 ######################################
 
 # %%
 ######################################
 ## check a series of plots at the same point using MFWF
-MFWF.myFavoriatePlot(x=108,y=97)
+MFWF.myFavoriatePlot(x=66,y=109)
 ######################################
 # %%
 ######################################
@@ -120,8 +121,8 @@ MFWF.roiMultiESRfit(max_peak = 6, lineFit = True)
 ## pick a roi and do multi esr for a single image
 
 MFWF.roi(xlow=10, ylow=10, xrange=155, yrange=155, plot=True)
-testWF = MFWF.WFList[3]
-testWF.multiESRfit(MFWF.xr, MFWF.yr, max_peak = 4)
+testWF = MFWF.WFList[-4]
+testWF.multiESRfit(MFWF.xr, MFWF.yr, max_peak = 5)
 ######################################
 
 # %%
@@ -146,12 +147,12 @@ print(MFWF.xyArray)
 # %%
 ######################################
 ## manual correction with given error thorshold
-testWF = MFWF.WFList[0]
+testWF = MFWF.WFList[-5]
 currentE = 0
-MFWF.roi(xlow=10, ylow=10, xrange=155, yrange=155, plot=True, lineCut=True)
+MFWF.roi(xlow=110, ylow=58, xrange=40, yrange=70, plot=True, lineCut=False)
 #MFWF.roi(xlow=55, ylow=82, xrange=20, yrange=1, plot=True)
 testWF.fitErrordetection(MFWF.xyArray, epschi = currentE)
-testWF.multiESRfitManualCorrection(isResume = False)
+##testWF.multiESRfitManualCorrection(isResume = False)
 ######################################
 
 # %%
@@ -161,9 +162,9 @@ testWF.multiESRfitManualCorrection(isResume = False)
 ## 2.875,2.91,2.94,2.96, 2.97
 ##This block tests auto correction
 currentE = 0
-guessfound = [2.825,3.024,3.15,3.22]
-MFWF.roi(xlow=10, ylow=10, xrange=155, yrange=155, plot=True, lineCut=True)
-testWF.fitErrordetection(MFWF.xyArray, epschi = currentE)
+guessfound = [2.851,3.033, 3.164, 3.252]
+# MFWF.roi(xlow=50, ylow=50, xrange=75, yrange=75, plot=True, lineCut=True)
+# testWF.fitErrordetection(MFWF.xyArray, epschi = currentE)
 testWF.multiESRfitAutoCorrection(guessfound, forced = True, isResume = False)
 ######################################
 #%%
@@ -176,15 +177,15 @@ testWF.multiESRfitManualCorrection(isResume = True)
 #%%
 ######################################
 ## test for single pt esr by mfp or waterfall plots
-testWF = MFWF.WFList[4]
+testWF = MFWF.WFList[-3]
 # px=80
 # py=90
 # testWF.myFavoriatePlot(px, py, maxPeak = 6)
 
-ycut = 80
-linecut = [[0, ycut],[175, ycut]]
-# xcut = 100
-# linecut = [[xcut, 0],[xcut, 173]]
+# ycut = 100
+# linecut = [[0, ycut],[175, ycut]]
+xcut = 105
+linecut = [[xcut, 0],[xcut, 173]]
 # linecut = [[82,73],[117,85]]
 # testWF.waterfallPlot(lineCut = linecut, stepSize = 10,  spacing = 0.005, plotTrace = True,plotFit=False)
 testWF.waterfallMap(lineCut = linecut, stepSize =1, plotTrace = True, localmin = False, flipped = False)
@@ -224,23 +225,24 @@ MFWF.lineroiDEvsParas(Espacing = 0.1)
 ######################################
 ## B/H plot for single image
 figpath = "F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/"
-MFWF.roi(xlow=10, ylow=10, xrange=155, yrange=155, plot=True)
-testWF = MFWF.WFList[4]
+MFWF.roi(xlow=10, ylow=10, xrange=155, yrange=155, plot=False)
+testWF = MFWF.WFList[-5]
 testWF.multix = MFWF.xr
 testWF.multiy = MFWF.yr
 # currentT = MFWF.ParaList[8]
 DD,EE=testWF.DEmap(plot=False)
-ref = EE[150, 150]
+ref = EE[100, 125]
 fig, ax = plt.subplots(nrows=1, ncols= 1, figsize= (6,6))
 img = ax.imshow(EE/ref, vmax = 1.2, vmin = 0.8)
+testWF.presaveFig = EE/ref
 # img = ax.imshow(DD, vmax = 4, vmin = 2)
 ax.title.set_text("B/H map")
 divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="5%", pad=0.05)
 plt.colorbar(img, cax=cax)
-plt.savefig(figpath+"BHmap_16p5gpa_"+str(101)+"K.png")
+plt.savefig(figpath+"BHmap_16p5gpa_19K_3A.png")
 plt.show()
-plt.close()
+##plt.close()
 ######################################
 # %%
 ######################################
@@ -280,21 +282,21 @@ plt.close()
 ######################################
 ## DE plot for one of MFWF
 figpath = "F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/"
-ii = 3
+ii = 0
 testWF = MFWF.WFList[ii]
-MFWF.roi(xlow=10, ylow=10, xrange=155, yrange=155, plot=True)
+MFWF.roi(xlow=10, ylow=10, xrange=155, yrange=155, plot=False)
 testWF.multix = MFWF.xr
 testWF.multiy = MFWF.yr
 DD,EE=testWF.DEmap(plot=False)
 fig, ax = plt.subplots(nrows=1, ncols= 2, figsize= (15,6))
-img1 = ax[0].imshow(DD, vmax = 3.1, vmin = 2.9)
+img1 = ax[0].imshow(DD, vmax = 3.2, vmin = 3)
 ax[0].title.set_text("D map (GHz)")
 divider = make_axes_locatable(ax[0])
 cax = divider.append_axes("right", size="5%", pad=0.05)
 plt.colorbar(img1, cax=cax)
 
 
-img2 = ax[1].imshow(EE, vmax = 0.16, vmin = 0.1)
+img2 = ax[1].imshow(EE, vmax = 0.01, vmin = 0)
 ax[1].title.set_text("E map (GHz)")
 divider = make_axes_locatable(ax[1])
 cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -302,7 +304,8 @@ plt.colorbar(img2, cax=cax)
 
 plt.savefig(figpath+"data" + str(ii) + ".png")
 plt.show()
-plt.close()
+##plt.close()
+##testWF.presaveFig = EE.copy()
 ######################################
 # %%
 ######################################
@@ -345,10 +348,10 @@ np.savetxt(labfolderpath+filename, exportData)
 # %%
 ######################################
 # save raw esr data with series of paras
-xx = 55
-yy = 100
+xx = 99
+yy = 136
 labfolderpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/igor/'
-filename = 'ni327_s1_16p5gpa_vsB_-x{}y{}.txt'.format(xx,yy)
+filename = 'ni327_s1_16p5gpa_vsBnew_19K_-x{}y{}.txt'.format(xx,yy)
 
 with open(labfolderpath+filename, 'a+') as file:
 
@@ -377,6 +380,40 @@ MFWF.roiMultiESRfit(max_peak = 8)
 ######################################
 
 
+ # %%
+######################################
+# Plot a the red image
+testWF = MFWF.WFList[-1]
+fig = plt.figure(num = 1, clear = True, figsize= (15,6))
+ax1 = fig.add_subplot(1, 1, 1)
+## plot the image
+# IMGplot = ax[0].imshow(self.originalDat[:,:,3].copy())
+thefig = testWF.originalDat[:,:,3].copy()
+maxx = thefig.max()
+minn = thefig.min()
+thefig = (thefig - minn)/(maxx - minn)
+IMGplot = ax1.imshow(thefig, vmax = 0.4, vmin = 0, cmap='rainbow')
+divider = make_axes_locatable(ax1)
+cax = divider.append_axes("right", size="5%", pad=0.05)
+plt.colorbar(IMGplot, cax=cax)
+plt.show()
+######################################
+
+ # %%
+######################################
+# Plot a the presave image
+testWF = MFWF.WFList[-2]
+fig = plt.figure(num = 1, clear = True, figsize= (15,6))
+ax1 = fig.add_subplot(1, 1, 1)
+## plot the image
+# IMGplot = ax[0].imshow(self.originalDat[:,:,3].copy())
+thefig = testWF.presaveFig
+IMGplot = ax1.imshow(thefig, vmax = 1.2, vmin = 0.8, cmap='rainbow')
+divider = make_axes_locatable(ax1)
+cax = divider.append_axes("right", size="5%", pad=0.05)
+plt.colorbar(IMGplot, cax=cax)
+plt.show()
+######################################
 # %% under construction
 from scipy.spatial import cKDTree
 import itertools
@@ -523,3 +560,21 @@ print(currentLevel)
 testWF.fitErrordetection(currentLevel, epschi = 1e-4)
 print(testWF.errorIndex)
 testWF.multiESRfitManualCorrection(isResume = False, seedScan = False)
+
+#%%
+import os
+import pickle
+picklepath = None
+if MFWF.isROIfit or MFWF.ROIfitloaded:
+            for i in range(MFWF.Nfile):
+                tmp = [MFWF.WFList[i].optList, MFWF.WFList[i].sqList, MFWF.WFList[i].ckList, MFWF.WFList[i].presaveFig, MFWF.imgShift[i]]
+                filename = MFWF.fileDir[i].split('.')[0] + '_fit.pkl'
+                if picklepath is None:
+                    picklepath = MFWF.folderPath + 'pickle/'
+                    if not os.path.exists(picklepath):
+                        os.makedirs(picklepath)
+                with open(picklepath + filename, 'wb') as f:
+                    pickle.dump(tmp, f)
+                    print("{} file has been dumped!".format(i))
+
+# %%

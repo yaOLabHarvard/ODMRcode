@@ -26,7 +26,7 @@ ni327s19p7gpa103Kpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/ni327_s1/9p7/1
 ni327s114p2gpavsTpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/ni327_s1/14p2/vsT/'
 ni327s116p5gpavsTpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/ni327_s1/16p5/vsT/'
 ni327s116p5gpavsBpath='F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/ni327_s1/16p5/vsB-19K_new/'
-fileName = '327_s1_16p5gpa_19K_mwn36_4p5A_new'
+fileName = '327_s1_16p5gpa_19K_mwn36_5A_new'
 plt.style.use('norm2')
 
 
@@ -50,12 +50,16 @@ testWF.norm()
 #%%
 ######################################
 ## check the data
-testWF = MFWF.WFList[-2]
+testWF = MFWF.WFList[-1]
 testWF.myFavoriatePlotMousepick(isChoosefig = True)
 ######################################
 
 
-
+#%%
+######################################
+## correct by clicking
+testWF.fitCorrectiononclick(brutally = True)
+######################################
 
 #%%
 ######################################
@@ -85,7 +89,7 @@ MFWF.manualAlign(nslice = 3, referN = 1)
 ######################################
 ## pick a roi and do auto image correlations
 MFWF.roi(xlow=120, ylow=35, xrange=30, yrange=30, plot=True)
-MFWF.imageAlign(nslice = 3, referN = 4, rr=5, debug = True)
+MFWF.imageAlign(nslice = 3, referN = 2, rr=5, debug = True)
 ######################################
 
 # %%
@@ -226,7 +230,7 @@ MFWF.lineroiDEvsParas(Espacing = 0.1)
 ## B/H plot for single image
 figpath = "F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/"
 MFWF.roi(xlow=10, ylow=10, xrange=155, yrange=155, plot=False)
-testWF = MFWF.WFList[-5]
+testWF = MFWF.WFList[-4]
 testWF.multix = MFWF.xr
 testWF.multiy = MFWF.yr
 # currentT = MFWF.ParaList[8]
@@ -240,7 +244,7 @@ ax.title.set_text("B/H map")
 divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="5%", pad=0.05)
 plt.colorbar(img, cax=cax)
-plt.savefig(figpath+"BHmap_16p5gpa_19K_3A.png")
+plt.savefig(figpath+"BHmap_16p5gpa_108K_5A.png")
 plt.show()
 ##plt.close()
 ######################################
@@ -282,7 +286,7 @@ plt.close()
 ######################################
 ## DE plot for one of MFWF
 figpath = "F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/"
-ii = 0
+ii = 1
 testWF = MFWF.WFList[ii]
 MFWF.roi(xlow=10, ylow=10, xrange=155, yrange=155, plot=False)
 testWF.multix = MFWF.xr
@@ -296,7 +300,7 @@ cax = divider.append_axes("right", size="5%", pad=0.05)
 plt.colorbar(img1, cax=cax)
 
 
-img2 = ax[1].imshow(EE, vmax = 0.01, vmin = 0)
+img2 = ax[1].imshow(EE, vmax = 0.4, vmin = 0.3)
 ax[1].title.set_text("E map (GHz)")
 divider = make_axes_locatable(ax[1])
 cax = divider.append_axes("right", size="5%", pad=0.05)

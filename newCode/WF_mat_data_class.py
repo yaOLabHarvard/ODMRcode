@@ -122,6 +122,7 @@ class WFimage:
             self.norm()
         if not self.binned:
             self.binning()
+        ##plt.ion()
         fig = plt.figure(num = 1, clear = True, figsize= (15,6))
         ax1 = fig.add_subplot(1, 2, 1)
         ## plot the image
@@ -168,10 +169,11 @@ class WFimage:
 
             for i in range(npeak):
                 params = popt[1+3*i:4+3*i]
-                print("peak number {}; amp {:.3e}; width {:.3e}; freq {:.3e};".format(i, popt[3*i+1], popt[3*i+2], popt[3*i+3]))
+                print("peak number {}; amp {:.3e}; width {:.3e}; freq {:.5e};".format(i, popt[3*i+1], popt[3*i+2], popt[3*i+3]))
                 ax2.plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params), '-')
 
-        plt.show()
+        plt.show(block=False)
+        plt.pause(0.1)
 
     def onpick(self, event):
         self.plotXx = int(event.xdata) 
@@ -239,7 +241,7 @@ class WFimage:
 
             for i in range(npeak):
                 params = popt[1+3*i:4+3*i]
-                print("peak number {}; amp {:.3e}; width {:.3e}; freq {:.3e};".format(i, popt[3*i+1], popt[3*i+2], popt[3*i+3]))
+                print("peak number {}; amp {:.3e}; width {:.3e}; freq {:.5e};".format(i, popt[3*i+1], popt[3*i+2], popt[3*i+3]))
                 ax2.plot(self.fVals,popt[0]+mf.lorentzian(self.fVals,*params), '-')
 
         fig.canvas.mpl_connect('button_press_event', self.onpick)
@@ -530,7 +532,7 @@ class WFimage:
                     try:
                         pOpt, pCov, chiSq = self.singleESRfit(x, y,max_peak = max_peak, epsy = epsy, initGuess=guessFreqs)
                         if pOpt is not None:
-                            guessFreqs = pOpt[0::3][1:]
+                            guessFreqs = pOpt[3::3]
                         else:
                             guessFreqs = initGuess
                     except ValueError:
@@ -584,7 +586,7 @@ class WFimage:
             return asw1
         else:
             self.fitList = self.plotAndCorrect(x, y)            
-            self.myFavoriatePlot(x, y, fitParas=self.fitList)
+            self.myFavoriatePlot(x, y, fitParas=self.fitList)            
             asw2 = int(input("Accept?(-1/0/1)"))                
             return asw2
     
@@ -608,7 +610,7 @@ class WFimage:
             for i in peakNumber:
 
                 flag = 3*i+1
-                print("peak number {}; amp {:.3e}; width {:.3e}; freq {:.3e};".format(i, fitList[flag], fitList[flag+1], fitList[flag+2]))
+                print("peak number {}; amp {:.3e}; width {:.3e}; freq {:.5e};".format(i, fitList[flag], fitList[flag+1], fitList[flag+2]))
 
             nums = np.fromstring(input("input the peak number you wish to delete (for example: 0, 1, 2):"), sep=',')
             nums = np.array(nums)
@@ -625,7 +627,65 @@ class WFimage:
             except (ValueError, TypeError, IndexError) as e:
                 print("no deletion! exit")
                 return
-            
+    
+
+    def fitCorrectiononclick(self, brutally = True):
+        x = self.plotYy
+        y = self.plotXx
+
+        if brutally:
+            freqs = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
+            optlist = np.zeros((len(freqs)*3+1))
+            nanlist = np.zeros((len(freqs)*3+1))
+            optlist[3::3] = freqs
+            self.optList[(x, y)] = optlist
+            self.covList[(x, y)] = nanlist
+            self.sqList[(x, y)] = nanlist
+            self.ckList[(x, y)] = 3
+        else:
+            try:
+                isRetry = True
+                self.fitList = [self.optList[(x, y)], self.covList[(x, y)], self.sqList[(x, y)]]
+                while isRetry:
+                    condition = self.CorrectQ(x, y, self.fitList)
+                    ##fitList = self.optList[(x, y)]
+                    if condition == 1:
+                        self.optList[(x, y)] = self.fitList[0]
+                        self.covList[(x, y)] = self.fitList[1]
+                        self.sqList[(x, y)] = self.fitList[2]
+                        self.ckList[(x, y)] = 3
+
+                        isRetry = False
+                    elif condition < 0:
+                        self.deleteFitpeaks(x, y)
+                    else:
+                        self.fitList = self.plotAndCorrect(x, y)
+                        
+
+                    # asw1, fitList = self.plotAndCorrect(x, y)
+                    # if asw1 == 1:
+                    #     self.optList[(x, y)] = fitList[0]
+                    #     self.covList[(x, y)] = fitList[1]
+                    #     self.sqList[(x, y)] = fitList[2]
+                    #     self.ckList[(x, y)] = 3
+                    #     asw2 = 0
+                    # elif asw1 == 2:
+                    #     self.optList[(x, y)] = fitList[0]
+                    #     self.deleteFitpeaks(x, y)
+                    #     asw2, fitList = self.plotAndCorrect(x, y)
+                    # elif asw1 == 0:
+                    #     if fitList == 0:
+                    #         asw2 = 0
+                    #     else:
+                    #         asw2 = int(input("Want to retry?(1/0)"))
+
+                    # if asw2 == 0:
+                    #     isRetry = 0
+
+            except(ValueError, RuntimeError, IndexError) as e:
+                print(e)
+                print("Force to stop!")
+                return 0
 
     def multiESRfitManualCorrection(self, isResume = False, seedScan = False):
         if isResume:
@@ -927,8 +987,8 @@ class WFimage:
         if self.isMultfit:
             theopt = self.optList[(realx, realy)]
             
-            if theopt is not None and len(theopt[0::3][1:])>=1:
-                peakFreqs = theopt[0::3][1:]
+            if theopt is not None and len(theopt[3::3])>=1:
+                peakFreqs = theopt[3::3]
                 Fmax = max(peakFreqs)
                 Fmin = min(peakFreqs)
                 DD = (Fmin + Fmax)/2
@@ -944,8 +1004,8 @@ class WFimage:
         if self.isMultfit:
             theopt = self.optList[(realx, realy)]
             
-            if theopt is not None and len(theopt[0::3][1:])>=1:
-                peakFreqs = np.sort(theopt[0::3][1:])
+            if theopt is not None and len(theopt[3::3])>=1:
+                peakFreqs = np.sort(theopt[3::3])
                 try:
                     Fmax = peakFreqs[int(peakNumber[0])]
                     Fmin = peakFreqs[int(peakNumber[-1])]
@@ -1130,12 +1190,15 @@ class multiWFImage:
         self.fileDir = {}
         self.Nfile = 0
         for filename in filenamearr:
-            self.fileDir[self.Nfile] = filename
-            tmpWF = WFimage(self.folderPath + filename)
-            tmpWF.norm()
-            tmpWF.binning()
-            self.WFList.append(tmpWF)
-            self.Nfile += 1
+            try:
+                self.fileDir[self.Nfile] = filename
+                tmpWF = WFimage(self.folderPath + filename)
+                tmpWF.norm()
+                tmpWF.binning()
+                self.WFList.append(tmpWF)
+                self.Nfile += 1
+            except:
+                print("something wrong with this file: {}..Skipping".format(filename))
         print("WFList Size: " + str(self.Nfile))
         print("all mat files have been loaded successfully! The data has been normalized and binned!")
     
@@ -1284,7 +1347,7 @@ class multiWFImage:
             fileLen = len(imageList)
 
         for i in range(fileLen):
-            tmpDat = self.WFList[i].originalDat[:,:,Nslice].copy()
+            tmpDat = self.WFList[i].dat[:,:,Nslice].copy()
             if i == 0:
                 stackImage = self.normImg(tmpDat)
             else:

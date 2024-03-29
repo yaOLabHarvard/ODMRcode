@@ -632,60 +632,45 @@ class WFimage:
     def fitCorrectiononclick(self, brutally = True):
         x = self.plotYy
         y = self.plotXx
+        if self.ckList[(x, y)]>1:
+            asw = int(input("This point has been previously auto or manual corrected -- proceed? (0/1)"))
+        
+        if asw:
+            if brutally:
+                freqs = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
+                optlist = np.zeros((len(freqs)*3+1))
+                nanlist = np.zeros((len(freqs)*3+1))
+                optlist[3::3] = freqs
+                self.optList[(x, y)] = optlist
+                self.covList[(x, y)] = nanlist
+                self.sqList[(x, y)] = nanlist
+                self.ckList[(x, y)] = 3
+            else:
+                try:
+                    isRetry = True
+                    self.fitList = [self.optList[(x, y)], self.covList[(x, y)], self.sqList[(x, y)]]
+                    while isRetry:
+                        condition = self.CorrectQ(x, y, self.fitList)
+                        ##fitList = self.optList[(x, y)]
+                        if condition == 1:
+                            self.optList[(x, y)] = self.fitList[0]
+                            self.covList[(x, y)] = self.fitList[1]
+                            self.sqList[(x, y)] = self.fitList[2]
+                            self.ckList[(x, y)] = 3
 
-        if brutally:
-            freqs = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
-            optlist = np.zeros((len(freqs)*3+1))
-            nanlist = np.zeros((len(freqs)*3+1))
-            optlist[3::3] = freqs
-            self.optList[(x, y)] = optlist
-            self.covList[(x, y)] = nanlist
-            self.sqList[(x, y)] = nanlist
-            self.ckList[(x, y)] = 3
-        else:
-            try:
-                isRetry = True
-                self.fitList = [self.optList[(x, y)], self.covList[(x, y)], self.sqList[(x, y)]]
-                while isRetry:
-                    condition = self.CorrectQ(x, y, self.fitList)
-                    ##fitList = self.optList[(x, y)]
-                    if condition == 1:
-                        self.optList[(x, y)] = self.fitList[0]
-                        self.covList[(x, y)] = self.fitList[1]
-                        self.sqList[(x, y)] = self.fitList[2]
-                        self.ckList[(x, y)] = 3
-
-                        isRetry = False
-                    elif condition < 0:
-                        self.deleteFitpeaks(x, y)
-                    else:
-                        self.fitList = self.plotAndCorrect(x, y)
+                            isRetry = False
+                        elif condition < 0:
+                            self.deleteFitpeaks(x, y)
+                        else:
+                            self.fitList = self.plotAndCorrect(x, y)
                         
-
-                    # asw1, fitList = self.plotAndCorrect(x, y)
-                    # if asw1 == 1:
-                    #     self.optList[(x, y)] = fitList[0]
-                    #     self.covList[(x, y)] = fitList[1]
-                    #     self.sqList[(x, y)] = fitList[2]
-                    #     self.ckList[(x, y)] = 3
-                    #     asw2 = 0
-                    # elif asw1 == 2:
-                    #     self.optList[(x, y)] = fitList[0]
-                    #     self.deleteFitpeaks(x, y)
-                    #     asw2, fitList = self.plotAndCorrect(x, y)
-                    # elif asw1 == 0:
-                    #     if fitList == 0:
-                    #         asw2 = 0
-                    #     else:
-                    #         asw2 = int(input("Want to retry?(1/0)"))
-
-                    # if asw2 == 0:
-                    #     isRetry = 0
-
-            except(ValueError, RuntimeError, IndexError) as e:
-                print(e)
-                print("Force to stop!")
-                return 0
+                except(ValueError, RuntimeError, IndexError) as e:
+                    print(e)
+                    print("Force to stop!")
+                    return 0
+        else:
+            print("please pick another point!")
+            return
 
     def multiESRfitManualCorrection(self, isResume = False, seedScan = False):
         if isResume:
@@ -1243,18 +1228,24 @@ class multiWFImage:
 
     def dumpFitResult(self, picklepath = None):
         if self.isROIfit or self.ROIfitloaded:
-            for i in range(self.Nfile):
-                tmp = [self.WFList[i].optList, self.WFList[i].sqList, self.WFList[i].ckList, self.WFList[i].presaveFig, self.imgShift[i]]
-                filename = self.fileDir[i].split('.')[0] + '_fit.pkl'
-                if picklepath is None:
-                    picklepath = self.folderPath + 'pickle/'
-                    if not os.path.exists(picklepath):
-                        os.makedirs(picklepath)
-                with open(picklepath + filename, 'wb') as f:
-                    pickle.dump(tmp, f)
-                    print("{} file has been dumped!".format(i))
+            asw = int(input("You might overwrite the existing pickles -- proceed?"))
+            if asw:
+                for i in range(self.Nfile):
+                    tmp = [self.WFList[i].optList, self.WFList[i].sqList, self.WFList[i].ckList, self.WFList[i].presaveFig, self.imgShift[i]]
+                    filename = self.fileDir[i].split('.')[0] + '_fit.pkl'
+                    if picklepath is None:
+                        picklepath = self.folderPath + 'pickle/'
+                        if not os.path.exists(picklepath):
+                            os.makedirs(picklepath)
+                    with open(picklepath + filename, 'wb') as f:
+                        pickle.dump(tmp, f)
+                        print("{} file has been dumped!".format(i))
 
-            self.ROIfitsaved = True
+                self.ROIfitsaved = True
+            else:
+                print("dump process stops!")
+                return
+
 
     def loadFitResult(self, picklepath = None, refreshChecks = False):
         for i in range(self.Nfile):
@@ -1265,14 +1256,18 @@ class multiWFImage:
                     os.makedirs(picklepath)
             with open(picklepath + filename, 'rb') as f:
                 tmpWF = self.WFList[i]
-                [tmpWF.optList, tmpWF.sqList, tmpWF.ckList, tmpWF.presaveFig, self.imgShift[i]] = pickle.load(f)
-                tmpWF.covList = {}
-                for k in tmpWF.ckList.keys():
-                    tmpWF.covList[k] = 0
-                    if refreshChecks:
-                        tmpWF.ckList[k] = 0
-                tmpWF.isMultfit = True
-                print("{} file has been loaded!".format(i))
+                try:
+                    [tmpWF.optList, tmpWF.sqList, tmpWF.ckList, tmpWF.presaveFig, self.imgShift[i]] = pickle.load(f)
+                    tmpWF.covList = {}
+                    for k in tmpWF.ckList.keys():
+                        tmpWF.covList[k] = 0
+                        if refreshChecks:
+                            tmpWF.ckList[k] = 0
+                    tmpWF.isMultfit = True
+                    print("{} file has been loaded!".format(i))
+                except:
+                    print("pickles do not exist! Dump them first!!")
+                    return
                 if not self.isAlign:
                     tmpWF.shiftDat(dx = -self.imgShift[i][0], dy = -self.imgShift[i][1])
 

@@ -286,7 +286,7 @@ plt.close()
 ######################################
 ## DE plot for one of MFWF
 figpath = "F:/NMR/NMR/py_projects/WF/ODMRcode/newCode/test/"
-ii = 1
+ii = -1
 testWF = MFWF.WFList[ii]
 MFWF.roi(xlow=10, ylow=10, xrange=155, yrange=155, plot=False)
 testWF.multix = MFWF.xr

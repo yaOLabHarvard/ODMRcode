@@ -4,6 +4,7 @@ import multipeak_fit as mf
 import numpy as np
 import itertools
 import random
+import peakutils
 # import matplotlib.pyplot as plt, cm
 from matplotlib import pyplot as plt, cm
 from matplotlib.patches import Rectangle
@@ -49,6 +50,7 @@ class WFimage:
         self.presaveFig = None
         self.plotXx = 0
         self.plotYy = 0
+        self.fitMethod = 'pro'
         ## -2 means cannot fit error
         ## -1 means  bad fit occurs -- either positive amp or really broad (> 10x)
         ## 0 means default
@@ -94,7 +96,7 @@ class WFimage:
 
 
     def norm(self):
-        self.dat = mf.normalize_widefield(self.dat, numpoints= 3, from_back=False)
+        self.dat = mf.normalize_widefield(self.dat, numpoints= 10, from_back=False)
         self.isNorm = True
 
     def sliceImage(self, Nslice = 3):
@@ -145,7 +147,7 @@ class WFimage:
         # ax2.set_ylim(0.996,1.002)
         if withFit:
             if fitParas is None:
-                peaks = self.singleESRpeakfind(x, y, max_peak = maxPeak, method = 'pro')
+                peaks = self.singleESRpeakfind(x, y, max_peak = maxPeak, method = self.fitMethod)
                 ax2.plot(self.fVals[peaks], spESR[peaks], 'x')
                 print("Peaks found by Autofind: "+str(self.fVals[peaks]))
                 print("Peak indices found by Autofind: "+ str(peaks))
@@ -163,7 +165,8 @@ class WFimage:
                 npeak = int(np.floor(len(popt)/3))
             elif fitParas is None:
                 npeak = len(peaks)
-                popt = mf.generate_pinit(self.fVals[peaks], spESR[peaks])
+                baseline = peakutils.baseline(spESR, deg = 0)[0]
+                popt = mf.generate_pinit(self.fVals[peaks], spESR[peaks], baseLine = baseline)
             else:
                 npeak = 0
 
@@ -197,10 +200,12 @@ class WFimage:
         if isChoosefig and self.presaveFig is not None:
             thefig = self.presaveFig
             self.isChoosefig = True
+            midscale = 1 ## by default now we choose B/H map
+            IMGplot = ax1.imshow(thefig, vmax = midscale+0.2, vmin = midscale-0.2)
         else:
             thefig = self.originalDat[:,:,3].copy()
-        midscale = 1 ## by default now we choose B/H map
-        IMGplot = ax1.imshow(thefig, vmax = midscale+0.2, vmin = midscale-0.2)
+            IMGplot= ax1.imshow(thefig)
+        
         divider = make_axes_locatable(ax1)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(IMGplot, cax=cax)
@@ -217,7 +222,7 @@ class WFimage:
         # ax2.set_ylim(0.996,1.002)
         if withFit:
             if fitParas is None:
-                peaks = self.singleESRpeakfind(self.plotYy, self.plotXx, max_peak = maxPeak, method = 'pro')
+                peaks = self.singleESRpeakfind(self.plotYy, self.plotXx, max_peak = maxPeak, method = self.fitMethod)
                 ax2.plot(self.fVals[peaks], spESR[peaks], 'x')
                 print("Peaks found by Autofind: "+str(self.fVals[peaks]))
                 print("Peak indices found by Autofind: "+ str(peaks))
@@ -235,7 +240,8 @@ class WFimage:
                 npeak = int(np.floor(len(popt)/3))
             elif fitParas is None:
                 npeak = len(peaks)
-                popt = mf.generate_pinit(self.fVals[peaks], spESR[peaks])
+                baseline = peakutils.baseline(spESR, deg = 0)[0]
+                popt = mf.generate_pinit(self.fVals[peaks], spESR[peaks], baseLine = baseline)
             else:
                 npeak = 0
 
@@ -425,10 +431,43 @@ class WFimage:
             else:
                 # print('ultra high prom')
                 peakPos, _ = find_peaks(1 - yVals, prominence=(0.01,0.4))
-        peak_values = yVals[peakPos]
-        posPeaks = np.array([i for i in peak_values if i > 0])
+
+        elif method == 'both':
+            yrange = max(yVals) - min(yVals)
+            # peakPos, _ = find_peaks(1 - yVals, prominence=0.1)
+            # peakPos, _ = find_peaks(1 - yVals, prominence=(0.001,0.2))
+            # if min(yVals)>0.992:
+            if yrange<2e-3:
+                # print('super low prom')
+                # print('0.0008')
+                npeakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.1))
+                ppeakPos, _ = find_peaks(-1 + yVals, prominence=(0.0005,0.1))
+            # elif min(yVals)<0.997 and min(yVals)>0.996:
+            #     print('med-low prom')
+            #     peakPos, _ = find_peaks(1 - yVals, prominence=(0.0014,0.3))
+            elif yrange>2e-3 and yrange>5e-3:
+                # print('low prom')
+                npeakPos, _ = find_peaks(1 - yVals, prominence=(0.00005,0.2))
+                ppeakPos, _ = find_peaks(-1 + yVals, prominence=(0.00005,0.2))
+            elif yrange>5e-3 and yrange<1e-2:
+                # print('med prom')
+                npeakPos, _ = find_peaks(1 - yVals, prominence=(0.001,0.3))
+                ppeakPos, _ = find_peaks(-1 + yVals, prominence=(0.001,0.3))
+            elif yrange>1e-2 and yrange<1.5e-2:
+                # print('high prom')
+                npeakPos, _ = find_peaks(1 - yVals, prominence=(0.005,0.3))
+                ppeakPos, _ = find_peaks(-1 + yVals, prominence=(0.005,0.3))
+            # # elif min(yVals)<0.992 and min(yVals)>0.985:
+            else:
+                # print('ultra high prom')
+                npeakPos, _ = find_peaks(1 - yVals, prominence=(0.01,0.4))
+                ppeakPos, _ = find_peaks(-1 + yVals, prominence=(0.01,0.4))
+            
+            peakPos = np.concatenate((npeakPos, ppeakPos))
+        peak_values = np.abs(1 -  yVals[peakPos])
+        #posPeaks = np.array([i for i in peak_values if i > 0])
         #   Sort the peaks by amplitude (highest to lowest)
-        sort_indices = np.argsort(posPeaks)[::-1]
+        sort_indices = np.argsort(peak_values)[::-1]
         peak_indices_sorted = peakPos[sort_indices]
         if len(peakPos) < max_peak:
             return peak_indices_sorted
@@ -455,14 +494,15 @@ class WFimage:
                     self.peakPos = np.array([min(range(len(self.fVals)), key=lambda i: abs(self.fVals[i]-f)) for f in self.guessFreq])
                     ##print(self.peakPos)
                 elif autofind:
-                    self.peakPos = self.singleESRpeakfind(x, y, method='pro', max_peak = max_peak)
+                    self.peakPos = self.singleESRpeakfind(x, y, method=self.fitMethod, max_peak = max_peak)
                     # print(self.peakPos)
                 else:
                     self.guessFreq = np.fromstring(input('Enter frequency (for example: 2.71, 2.81, 2.91, 3.01):'),sep=',')
                     self.peakPos = np.array([min(range(len(self.fVals)), key=lambda i: abs(self.fVals[i]-f)) for f in self.guessFreq])
                     ##print(self.peakPos)
                 ## generate real peaks based on the center freqs
-                initParas = mf.generate_pinit(self.fVals[self.peakPos], yVals[self.peakPos])
+                baseline = peakutils.baseline(yVals, deg = 0)[0]
+                initParas = mf.generate_pinit(freqVals = self.fVals[self.peakPos], peakHeights = yVals[self.peakPos], baseLine = baseline)
 
                 if initGuess is None and autofind is True:## initGuess is not None or (initGuess is None and autofind is False):
                     try:
@@ -479,8 +519,9 @@ class WFimage:
                     except ValueError:
                         self.FitCheck = -2
                         print("The guess singleESRfit fails.. Now will try auto method")
-                        self.peakPos = self.singleESRpeakfind(x, y, method='pro', max_peak = max_peak)
-                        initParas = mf.generate_pinit(self.fVals[self.peakPos], yVals[self.peakPos])
+                        self.peakPos = self.singleESRpeakfind(x, y, method=self.fitMethod, max_peak = max_peak)
+                        baseline = peakutils.baseline(yVals, deg = 0)[0]
+                        initParas = mf.generate_pinit(freqVals = self.fVals[self.peakPos], peakHeights = yVals[self.peakPos], baseLine = baseline)
                 
                         try:
                             pOpt, pCov= mf.fit_data(self.fVals, yVals, init_params= initParas, fit_function= mf.lor_fit, maxFev=max_repeat)
@@ -1196,6 +1237,7 @@ class multiWFImage:
         self.ROIfitsaved = False
         self.isDEmap = False
         self.isPara = False
+        self.fitMethod = 'pro'
 
         self.imgShift = np.zeros((self.Nfile, 2))
         self.roiShape = 'point'
@@ -1314,7 +1356,7 @@ class multiWFImage:
 
             if withFit:
                 if fitParas is None:
-                    peaks = tmpWF.singleESRpeakfind(x, y, method = 'pro')
+                    peaks = tmpWF.singleESRpeakfind(x, y, method = self.fitMethod)
 
                 print("Peaks found by Autofind: "+str(tmpWF.fVals[peaks]))
                 print("Peak indices found by Autofind: "+ str(peaks))

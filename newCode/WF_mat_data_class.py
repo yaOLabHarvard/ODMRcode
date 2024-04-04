@@ -48,13 +48,14 @@ class WFimage:
         self.resumeX = 0
         self.FitCheck = 0
         self.presaveFig = None
+        self.presaveFigrange = 'default'
         self.plotXx = 0
         self.plotYy = 0
         self.fitMethod = 'pro'
         ## -2 means cannot fit error
-        ## -1 means  bad fit occurs -- either positive amp or really broad (> 10x)
-        ## 0 means default
-        ## 1 means good fit but has not been corrected
+        ## -1 means  bad fit occurs -- either small intensity or really broad (> 10x)
+        ## 0 means default (not fitted yet)
+        ## 1 means okay fit but has not been corrected
         ## 2 means good fit and has been auto corrected
         ## 3 means good fit and has been manually corrected
 
@@ -201,7 +202,10 @@ class WFimage:
             thefig = self.presaveFig
             self.isChoosefig = True
             midscale = 1 ## by default now we choose B/H map
-            IMGplot = ax1.imshow(thefig, vmax = midscale+0.2, vmin = midscale-0.2)
+            if self.presaveFigrange == 'bh':
+                IMGplot = ax1.imshow(thefig, vmax = midscale+0.2, vmin = midscale-0.2)
+            else:
+                IMGplot = ax1.imshow(thefig)
         else:
             thefig = self.originalDat[:,:,3].copy()
             IMGplot= ax1.imshow(thefig)
@@ -440,15 +444,15 @@ class WFimage:
             if yrange<2e-3:
                 # print('super low prom')
                 # print('0.0008')
-                npeakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.1))
-                ppeakPos, _ = find_peaks(-1 + yVals, prominence=(0.0005,0.1))
+                npeakPos, _ = find_peaks(1 - yVals, prominence=(0.00005,0.1))
+                ppeakPos, _ = find_peaks(-1 + yVals, prominence=(0.00005,0.1))
             # elif min(yVals)<0.997 and min(yVals)>0.996:
             #     print('med-low prom')
             #     peakPos, _ = find_peaks(1 - yVals, prominence=(0.0014,0.3))
-            elif yrange>2e-3 and yrange>5e-3:
+            elif yrange>2e-3 and yrange<5e-3:
                 # print('low prom')
-                npeakPos, _ = find_peaks(1 - yVals, prominence=(0.00005,0.2))
-                ppeakPos, _ = find_peaks(-1 + yVals, prominence=(0.00005,0.2))
+                npeakPos, _ = find_peaks(1 - yVals, prominence=(0.0005,0.2))
+                ppeakPos, _ = find_peaks(-1 + yVals, prominence=(0.0005,0.2))
             elif yrange>5e-3 and yrange<1e-2:
                 # print('med prom')
                 npeakPos, _ = find_peaks(1 - yVals, prominence=(0.001,0.3))
@@ -635,10 +639,13 @@ class WFimage:
         if self.isMultfit:
             self.errorIndex = []
             for [x, y] in xyarray:
-                if self.sqList[(x, y)] is None:
-                    self.sqList[(x, y)] = 1
-                if self.sqList[(x, y)] > epschi and min(self.dat[x, y]) < 1 - epsy and self.ckList[(x, y)] < 3:
-                    self.errorIndex.append([x,y])
+                try:
+                    if self.sqList[(x, y)] is None:
+                        self.sqList[(x, y)] = 1
+                    if self.sqList[(x, y)] > epschi and min(self.dat[x, y]) < 1 - epsy and self.ckList[(x, y)] < 3:
+                        self.errorIndex.append([x,y])
+                except:
+                    continue
             
             self.isErrordetect = True
         else:
